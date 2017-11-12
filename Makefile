@@ -35,5 +35,3 @@ dotTree:
 clean:
 	rm -f *~ src/*~ config/*~ src/autogen/* config/config.pl bbTest/* test/outputs/*
 
-cleanall:
-	rm -f *~ src/*~ src/autogen/~ experiments/outputs/*
