@@ -17,19 +17,26 @@ main:-
 	atom_concat(MhpDir,'src/autogen/mhp.pl',File),
 	open(File,write,Os),
 	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),	
-	main_aux(GidList,Os),
+	main_aux(GidList,Os,0,PairNo),
+	(PairNo=0->
+	(write(Os,'mhp('),
+	write(Os,'Dummy1'),
+	write(Os,','),
+	write(Os,'Dummy2'),
+	write(Os,').')
+	);true),
 	close(Os).
 
-main_aux([],_).	
-main_aux([G|Gs],Os):-
+main_aux([],_,P,P).	
+main_aux([G|Gs],Os,C,P):-
     edge(_N,_N1,G),!,   % check if an edge in graph G exists	
-    mhpmain(G,Os),
-    main_aux(Gs,Os).
+    mhpmain(G,Os,C,C1),
+    main_aux(Gs,Os,C1,P).
 
-main_aux([_G|Gs],Os):-
-    main_aux(Gs,Os).
+main_aux([_G|Gs],Os,C,P):-
+    main_aux(Gs,Os,C,P).
 
-mhpmain(G,Os):-
+mhpmain(G,Os,Count,Countp):-
     addSyncInfo(G),
     retractall(atom(_Node,_Atom)),
     nb_setval(taskcounter,1),
@@ -46,7 +53,7 @@ mhpmain(G,Os):-
     obtain_concurrentTaskList(FlowSetsUp,ConcurrentTaskList,G),
     selectMHPNodes(ConcurrentTaskList,G,MHPList),
     refineMHPPair(MHPList,[],G,MHPTasks),	
-    debugWriteInfo(MHPTasks,Os,true).
+    debugWriteInfo(MHPTasks,Os,true,Count,Countp).
 
 
 union_pairs([],PList,Acc,Rs):-
@@ -81,20 +88,21 @@ selectMHPNodes([(P,L)|Ns],G,[(P,L)|Rs]):-
 selectMHPNodes([_|Ns],G,Rs):-
 	selectMHPNodes(Ns,G,Rs).
 	
-debugWriteInfo(_FlowSetsUp,_,false).
-debugWriteInfo(FlowSetsUp,Os,true):-
-       writeMHPInfo(FlowSetsUp,Os).  
+debugWriteInfo(_FlowSetsUp,_,false,C,C).
+debugWriteInfo(FlowSetsUp,Os,true,Count,Countp):-
+       writeMHPInfo(FlowSetsUp,Os,Count,Countp).  
 	
 
-writeMHPInfo([],_).
-writeMHPInfo([(P,Q)|Ls],Os):- 
+writeMHPInfo([],_,C,C).
+writeMHPInfo([(P,Q)|Ls],Os,Count,Countp):- 
 	write(Os,'mhp('),
 	write(Os,P),
 	write(Os,','),
 	write(Os,Q),
 	write(Os,').'),
 	nl(Os),
-	writeMHPInfo(Ls,Os).
+	C1 is Count+1,
+	writeMHPInfo(Ls,Os,C1,Countp).
 
 concurrentTaskList_aux([],CList,CList,_).
 concurrentTaskList_aux([Atom|AtomRs],Acc,CList,G):-

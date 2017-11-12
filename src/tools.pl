@@ -1,7 +1,6 @@
-:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0,test/0,test1/0]).
-:- use_module(src/autogen/xmltreelogic).
-:- use_module(src/autogen/taskSpec).
-:- use_module(src/autogen/buildpath).
+:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0]).
+:- use_module(autogen/xmltreelogic).
+:- use_module(autogen/buildpath).
 :- use_module(config/config).
 
 validateall:-
@@ -9,28 +8,16 @@ validateall:-
     %validateNodePath.
     
 
-% Absolutely corrupt
-test:-
-     findall((Path,Func),(path(PNode,Path)),List),
-     findall(Node,func(Node,_P,_F),NList),	
-     findall((Node,PNode,Func),(member(Node,NList),path(PNode,Path),func(Node,PNode,Func),write(Node),write('  -- '), write()),L1),
-     %write("In Path but not in Func:"),nl,    
-     %findall(Node,(func(PNode,Node,_Func),\+ path(Node,Path)),L2),	
-     %write("In Func but not in Path:"),nl,
-     %write(L2),		
-     length(List,N),
-     length(L1,LN),	
-      write(N),write(LN).
 
-test1:-
-	findall(Node,(node(Node,class:exec,_),\+ func(Node,_,_M)),L),
-	length(L,N),
-	findall(Node,(func(Node,_,_M1),\+ taskspec(Node,_L,_F)),L1),
-	length(L1,N1),
-	write(N),
-	write(L),nl,
-	write(N1),
-	write(L1).
+%% test1:-
+%% 	findall(Node,(node(Node,class:exec,_),\+ func(Node,_,_M)),L),
+%% 	length(L,N),
+%% 	findall(Node,(func(Node,_,_M1),\+ taskspec(Node,_L,_F)),L1),
+%% 	length(L1,N1),
+%% 	write(N),
+%% 	write(L),nl,
+%% 	write(N1),
+%% 	write(L1).
 
 build_all_task_spec:-
       mhpDir(MhpDir),
