@@ -1,0 +1,14 @@
+This tool analyzes the high-level design of a parallel application in which parallelism is expressed using task graphs. It generates the may-happen-in-parallel facts of tasks by applying dataflow analysis.
+
+Requirements
+------------
+
+You need to have the SWI prolog (http://www.swi-prolog.org/) installed and available in your shell command.  Specific command at environment X (anonymous):
+
+      Command: module avail swipl 
+
+You may have either swipl/7.2.3(default) or swipl/7.3.11). Either of the version works fine.
+
+How to Get 
+----------
+
