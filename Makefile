@@ -10,6 +10,7 @@ build:
 	swipl --quiet -s 'src/dataflowAnalysis.pl' -t main --  
 	swipl --quiet -s 'src/tools.pl' -t build_all_task_spec --
 	swipl --quiet -s 'src/buildRacerScript.pl' -t build_script --
+	swipl --quiet -s 'src/buildRacerScript.pl' -t build_compile_commands --
 
 
 
