@@ -13,6 +13,8 @@
 convertXML(InputXML):-
       load_xml(InputXML,XML,[dialect(xml)]),
       mhpDir(MhpDir),
+      atom_concat(MhpDir,'src/autogen',AutoGen),
+      check_or_create_dir(AutoGen),
       atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),	
       atom_concat(MhpDir,'src/autogen/xmltreelogic.pl',TreeLogic),	
       atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),	
@@ -400,3 +402,7 @@ parseXML(InputXML):-
 
 
 
+check_or_create_dir(D):-
+	exists_directory(D),!.
+
+check_or_create_dir(D):- make_directory(D).
