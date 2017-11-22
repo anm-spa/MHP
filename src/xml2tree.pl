@@ -209,17 +209,17 @@ visitElementList(B,[X,Y|Xs],N,Np,OS,Tr):-
 	 Parent=BarrierNode,
 	 atom_concat('r',BarrierNode,BNode),
 	 atom_concat('r',B,ParBNode),
-	 (nodepath(ParBNode,Path)->(bbDir(Base),atom_concat(Base,BPath,Path),writePathOutput(OS,BarrierNode,BPath),assertz(nodepath(BNode,Path)));true),
+	 
+	 (nodepath(ParBNode,Path)->(bbDir(Base),atom_concat(Base,BPath,Path),writePathOutput(OS,BarrierNode,BPath),writePathOutput(OS,P,BPath),assertz(nodepath(BNode,Path)));true),
 	 append(N1,[BarrierNode],N2)
        ); 
 	( Parent=P,N2=N1,
 	   %%% temporary 
-	  atom_concat('r',B,ParBNode),atom_concat('r',P,PNode),
+	  atom_concat('r',B,ParBNode),
 	  (has_joinnode([Y|Xs]),nodepath(ParBNode,Path)->
-	      ( bbDir(Base),atom_concat(Base,BPath,Path),writePathOutput(OS,P,BPath),assertz(nodepath(PNode,Path)));true
+	      ( bbDir(Base),atom_concat(Base,BPath,Path),writePathOutput(OS,P,BPath),assertz(nodepath(P,Path)));true
            )
 	)),
-    
     visitElement(Parent,Y,N2,N3,OS,Tr),!,
     visitElementList(Parent,Xs,N3,Np,OS,Tr).
 
@@ -274,14 +274,14 @@ visitElement(P,X,N,Np,OS,Tr):-
 	Counterp is Counter+1,
         nb_setval(executableNode,Counterp),
 	writeNodeInfo(Tr,BB,A),
-	writeFuncOutput(OS,P,BB,BB),
+	writeFuncOutput(OS,P,BB,B),
 	BNode=BB,
 	append(N,[BB],Np))
    ),
+   
    % B belongs to the path DPath. But in order to have the consistency(like in other nodes), P also belongs to Dpath
    % and we include it for consistent inference
-   (member(actionPackageFile=FPath,L)->(extract_dir_path(FPath,DPath), writePathOutput(OS,P,DPath)); true),
-	
+   (member(actionPackageFile=FPath,L)->(extract_dir_path(FPath,DPath), writePathOutput(OS,P,DPath),writePathOutput(OS,BNode,DPath)); true),
     writeEdgeInfo(Tr,P,BNode),!.
 %    writeOutput(OS,A,L).
 
