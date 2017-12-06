@@ -1,7 +1,8 @@
-:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0]).
+:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0,mhpQuery/2]).
 :- use_module(autogen/xmltreelogic).
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
+:- use_module(autogen/mhp).
 
 validateall:-
     validateTreeLogic.
@@ -99,7 +100,7 @@ printTreeinDot:-
     %printTree([P],[],Os1,1),
     %printTree([P],[],Os2,2),
     printTreeAlternative(Os1,1),
-    printTreeAlternative(Os2,2),
+    printTreeAlternative(Os2,2),	
     nl(Os1),
     nl(Os2),
     write(Os1,'}'),
@@ -194,3 +195,15 @@ validateTreeLogic:-
  %   write(L2),nl,	
  %   write("The paths for the following tasks are unknown: "),write(N1),nl,
  %   write(L1).	
+
+
+mhpQuery(Task,MHPList):-
+	write('MHP list of '),
+	write(Task),nl,
+	findall(Q,((mhp(Task,Q);mhp(Q,Task)),write(Q),nl),MHPList),
+	length(MHPList,L),
+	write('No of Parallel Tasks: '),
+	write(L).
+
+mhpAnomalyCheck.
+	

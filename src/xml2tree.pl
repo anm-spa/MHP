@@ -38,6 +38,36 @@ convertXML(InputXML):-
       close(Tr),
       close(Tr1),
       close(OS).
+ 
+%addBarrierAfterJoinWithMultiplePred(TreeLogic).
+
+
+%% addAuxiliaryBarrierNode(N,Tr):-
+%% 	edge(N,M,G),
+%% 	nb_getval(barrier,Bcounter),
+%%         atom_concat('barrier',Bcounter,BarrierNode),
+
+%%         writeNodeInfo(Tr,BarrierNode,'class:barrier'),               % Create a dummy barrier node
+%%         Bcounterp is Bcounter+1,
+%%         nb_setval(barrier,Bcounterp),
+%%         writeEdgeInfo(Tr,N,BarrierNode),
+%% 	writeEdgeInfo(Tr,N,BarrierNode)
+
+
+
+%% hasMultipleValidPred(N):-
+%% 	findall(M,(edge(M,N,G),edge(_,M,G)),MList),
+%% 	length(MList,N),
+%% 	N>=1.
+
+%% addBarrierAfterJoinWithMultiplePred(F):-
+%% 	use_module(F),
+%% 	findall(N,(node(N,class:join,_),hasMultipleValidPred(N),edge(N,M,G),node(M,Type,G),\+ Type=class:barrier),NList),
+%% 	open(F,write,Tr),
+%% 	forall(member(N,NList),addAuxiliaryBarrierNode(N,Tr)),
+%% 	close(Tr).
+
+
 
 visitMain([element(A,B,C)],GraphIdList,Os,Tr,Tr1):-	
     writeInfo(Tr1,A,B),
@@ -150,7 +180,7 @@ visitList([X|Xs],L,NList,OS,Tr):-
     %writeOutput(OS,'class:label',B),
     filterNonElement(C,[],Cp),
 
-    (  ((has_forknode(Cp),\+ Cp=[element('class:exec',_LL,_)|_XX]))->       % ;has_multipleJoinNode(Cp), Need to think later
+    (  ((has_forknode(Cp),\+ Cp=[element('class:exec',_LL,_)|_XX]);(has_joinnode(Cp),atom_concat('Join',_,B)))->       % ;has_multipleJoinNode(Cp), Need to think later
        (
          nb_getval(barrier,Bcounter),
          atom_concat('barrier',Bcounter,BarrierNode),
@@ -176,7 +206,7 @@ has_forknode(Cp):-
     (member(element('class:fork',A,_B),Cp);member(element('class:multifork',A,_Y),Cp)).
 
 has_joinnode(Cp):-
-    (member(element('class:join',A,_B),Cp);member(element('class:multijoin',A,_Y),Cp)).
+    (member(element('class:join',A,_B),Cp)).
 
 
 
