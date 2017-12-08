@@ -4,13 +4,13 @@ DIVE=experiments/graph1
 COMPWITH=experiments/example1
 
 build:
-#	swipl --quiet -s 'config/createConfig.pl' -t "configureBB('${BBDIR}','${LLVMBIN}')"
+	swipl --quiet -s 'config/createConfig.pl' -t "configureBB('${BBDIR}','${LLVMBIN}')"
 	swipl --quiet -s 'src/xml2tree.pl' -t "convertXML('${DIVE}')"
 	swipl --quiet -s 'src/tools.pl' -t validateall --
 	swipl --quiet -s 'src/dataflowAnalysis.pl' -t main --  
-#	swipl --quiet -s 'src/tools.pl' -t build_all_task_spec --
-#	swipl --quiet -s 'src/buildRacerScript.pl' -t build_script --
-#	swipl --quiet -s 'src/buildRacerScript.pl' -t build_compile_commands --
+	swipl --quiet -s 'src/tools.pl' -t build_all_task_spec --
+	swipl --quiet -s 'src/buildRacerScript.pl' -t build_script --
+	swipl --quiet -s 'src/buildRacerScript.pl' -t build_compile_commands --
 
 
 

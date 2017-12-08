@@ -7,19 +7,27 @@
 :- dynamic atom/2.
 :- dynamic df/2.
 :- dynamic joinArity/2.
+:- dynamic barriers/2.
 
 :- style_check(-singleton).
 :- style_check(-discontiguous).
 
 
-debug_mode(false).
+debug_mode(true).
 
 main:-
 	graphs(GidList),
 	mhpDir(MhpDir),
 	atom_concat(MhpDir,'src/autogen/mhp.pl',File),
 	open(File,write,Os),
-	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),	
+	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),
+	retractall(atom(_Node,_Atom)),
+	retractall(df(_N,_DF)),
+	retractall(joinArity(_Nd,_Arity)),	
+	retractall(barriers(_NN,_BB)),	
+	nb_setval(taskcounter,1),
+	nb_setval(barriercounter,1),
+
 	main_aux(GidList,Os,0,PairNo),
 	(PairNo=0->
 	(write(Os,'mhp('),
@@ -40,11 +48,6 @@ main_aux([_G|Gs],Os,C,P):-
     main_aux(Gs,Os,C,P).
 
 mhpmain(G,Os,Count,Countp):-
-    retractall(atom(_Node,_Atom)),
-    retractall(df(_N,_DF)),
-    retractall(joinArity(_Nd,_Arity)),	
-    nb_setval(taskcounter,1),
-    nb_setval(barriercounter,1),
 
     createRelevantBarrierListForEachNode(G),
     findall(B,((node(B,class:barrier,G);node(B,class:decision,G)),sync(_,B)),BList),
@@ -171,9 +174,19 @@ nonblockingJoinNode(Q,GraphNo):-
 joinNode(Q,GraphNo):-
 	(node(Q,class:join,GraphNo);node(Q,class:multijoin,GraphNo)).
 
+
+go_checkpoint.
+
+db_checkpoint(P,Q):-
+	(P=rbarrier2;Q=rbarrier2),
+	go_checkpoint.
+
+db_checkpoint(_P,_Q).
+
 forwardDataFlowAnalysis([],_GraphNo):-!.
 forwardDataFlowAnalysis(WL,GraphNo):-
 	WL=[(P,Q)|Ws],
+	db_checkpoint(P,Q),
 	df(Q,QEntry),
 	applyTransferFunction(Q,GraphNo,QEntry,QExit),
 
@@ -253,6 +266,14 @@ genFactsforParallelBranch([A|As],Bs):-
 	node(N,class:barrier,_),!,
 	genFactsforParallelBranch(As,Bs).
 
+
+% an atom synchronized with decision node will not be copied to parallel branch unless the decision node is replaced by appropriate barrier node.
+genFactsforParallelBranch([A|As],Bs):-
+	atom_concat(_,D,A),
+	atom(N,D),
+	node(N,class:decision,_),!,
+	genFactsforParallelBranch(As,Bs).
+
 genFactsforParallelBranch([A|As],[B|Bs]):-
 	atom_concat('p',A,B),
 	genFactsforParallelBranch(As,Bs).
@@ -325,9 +346,18 @@ debugWriteInfo(P,Q,QEntry,QExit):-
 debugWriteInfo(_P,_Q,_QEntry,_QExit).	
 
 removeTasksHavingBarriers([],_B,[]).
+
+% atom S is synchronized with one of the barriers from BList, it is thus discarded
 removeTasksHavingBarriers([S|Ss],BList,Sp):-
 	extractBarrierAtom(S,Bp),
 	(member(Bp,BList);(atom(M,S),node(M,Type,_),Type=class:barrier)),!,
+	removeTasksHavingBarriers(Ss,BList,Sp).
+
+% atom S is synchronized with one of the decision nodes, it is thus discarded until it is synchronized to some barriers
+removeTasksHavingBarriers([S|Ss],BList,Sp):-
+	atom_concat(_,D,S),
+	atom(N,D),
+	node(N,class:decision,_),!,
 	removeTasksHavingBarriers(Ss,BList,Sp).
 
 removeTasksHavingBarriers([S|Ss],B,[S|Sp]):-
@@ -352,7 +382,7 @@ update_atoms_for_decision_node(P,Q,PExit,QEntry):-
 	atom(P,Patom),
         sync(Q,B),
 	atom(B,Batom),!,
-	findall(Z,(member(X,PExit),((atom_concat(Y,Patom,X),atom_concat(Y,Batom,Z),!);Z=X)),QEntry).
+	findall(Z,(member(X,PExit),((atom_concat(Y,Patom,X),atom_concat(Y,Batom,Z));(Z=X,\+ atom_concat(_,Patom,X)))),QEntry).
 
 update_atoms_for_decision_node(P,Q,PExit,PExit).
 
@@ -513,17 +543,16 @@ kill_aux([P|Rs],B,Acc,KillSet):-
 
 kill(P,Entry,[]):-
     node(P,A,GraphNo),
-    member(A,[class:exec,class:decision,class:label,class:fork,class:multifork,class:join,class:multijoin,class:nop]),!.
+    member(A,[class:exec,class:decision,class:label,class:fork,class:multifork,class:join,class:multijoin,class:nop,class:return]),!.
 
-
-%% kill(P,Entry,KillSet):-
-%%     node(P,class:barrier,GraphNo),
-%%     atom(P,B),
-%%     kill_aux(Entry,B,[],KillSet).
 
 kill(P,Entry,KillSet):-
     node(P,class:barrier,GraphNo),
-    getAllBarriersWithIndirectSync([P], GraphNo,[],Barriers),
+    (barriers(P,BList)-> Barriers=BList;	
+    (
+	getAllBarriersWithIndirectSync([P], GraphNo,[],Barriers),
+        assertz(barriers(P,Barriers))
+     )),
     getAllKillSet(Barriers,Entry,KillSet).	
 
 getAllKillSet([],_Entry,[]).
@@ -586,8 +615,7 @@ gen(P,GraphNo,GenSet):-
 	generateAtoms(P,GenSet).
     
 gen(P,GraphNo,[]):-                      
-    node(P,A,GraphNo),
-    member(A,[class:multijoin,class:join,class:nop,class:decision]).
+    node(P,A,GraphNo).
 
 
 selectGraph(N,Nodes,Edges):-

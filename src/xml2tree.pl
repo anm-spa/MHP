@@ -41,34 +41,6 @@ convertXML(InputXML):-
       close(Tr1),
       close(OS).
  
-%addBarrierAfterJoinWithMultiplePred(TreeLogic).
-
-
-%% addAuxiliaryBarrierNode(N,Tr):-
-%% 	edge(N,M,G),
-%% 	nb_getval(barrier,Bcounter),
-%%         atom_concat('barrier',Bcounter,BarrierNode),
-
-%%         writeNodeInfo(Tr,BarrierNode,'class:barrier'),               % Create a dummy barrier node
-%%         Bcounterp is Bcounter+1,
-%%         nb_setval(barrier,Bcounterp),
-%%         writeEdgeInfo(Tr,N,BarrierNode),
-%% 	writeEdgeInfo(Tr,N,BarrierNode)
-
-
-
-%% hasMultipleValidPred(N):-
-%% 	findall(M,(edge(M,N,G),edge(_,M,G)),MList),
-%% 	length(MList,N),
-%% 	N>=1.
-
-%% addBarrierAfterJoinWithMultiplePred(F):-
-%% 	use_module(F),
-%% 	findall(N,(node(N,class:join,_),hasMultipleValidPred(N),edge(N,M,G),node(M,Type,G),\+ Type=class:barrier),NList),
-%% 	open(F,write,Tr),
-%% 	forall(member(N,NList),addAuxiliaryBarrierNode(N,Tr)),
-%% 	close(Tr).
-
 
 
 visitMain([element(A,B,C)],GraphIdList,Os,Tr,Tr1):-	
@@ -228,7 +200,7 @@ visitElementList(B,[X,Y|Xs],N,Np,OS,Tr):-
     visitElement(B,X,N,N1,OS,Tr),
     append(N,[P],N1),
     (
-      has_forknode([Y|Xs])->
+      (has_forknode([Y|Xs]);(has_multipleJoinNode([Y|Xs])))->
        (
          nb_getval(barrier,Bcounter),
          atom_concat('barrier',Bcounter,BarrierNode),

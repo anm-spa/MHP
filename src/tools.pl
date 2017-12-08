@@ -158,6 +158,17 @@ printTreeOutputAlternative([(P,Q)|Rs],Os):-
 	);true
 
     ),
+
+    (
+	\+ edge(_,P,_)->
+	(
+            write(Os,P),
+	    write(Os,'[shape=rectangle,style=filled,color=red];'),
+	    nl(Os)    
+	);true
+
+    ),
+	
     write(Os,P),
     write(Os,' -> '),
     write(Os,Q),
