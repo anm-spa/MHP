@@ -1,25 +1,15 @@
-:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0,mhpQuery/2]).
-:- use_module(autogen/xmltreelogic).
+:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedGraph/1]).
+:- use_module(autogen/graph).
+:- use_module(autogen/graphExtended).
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
 :- use_module(autogen/mhp).
+:- use_module(library(http/js_write)).
 
 validateall:-
     validateTreeLogic.
     %validateNodePath.
     
-
-
-%% test1:-
-%% 	findall(Node,(node(Node,class:exec,_),\+ func(Node,_,_M)),L),
-%% 	length(L,N),
-%% 	findall(Node,(func(Node,_,_M1),\+ taskspec(Node,_L,_F)),L1),
-%% 	length(L1,N1),
-%% 	write(N),
-%% 	write(L),nl,
-%% 	write(N1),
-%% 	write(L1).
-
 build_all_task_spec:-
       mhpDir(MhpDir),
       atom_concat(MhpDir,'src/autogen/taskSpec.pl',File),	
@@ -99,8 +89,8 @@ printTreeinDot:-
     write(Os2,'digraph G {'),
     %printTree([P],[],Os1,1),
     %printTree([P],[],Os2,2),
-    printTreeAlternative(Os1,1),
-    printTreeAlternative(Os2,2),	
+    drawGraph(Os1,1),
+    drawGraph(Os2,2),	
     nl(Os1),
     nl(Os2),
     write(Os1,'}'),
@@ -108,9 +98,34 @@ printTreeinDot:-
     close(Os1),
     close(Os2).
 
-printTreeAlternative(Os,G):-
+
+drawMarkedGraph(N):-
+	mhpDir(MhpDir),
+	atom_concat(MhpDir,'test/outputs/',Temp1),	
+    	atom_concat(Temp1,'mhpGraph',Temp2),
+	atom_concat(Temp2,'.dot',File),
+	open(File,write,Os),
+	write(Os,'digraph G {'),
+	node(N,_,G),
+	mhpQuery(N,MHPList),
+	drawGraph(Os,G,N,MHPList),
+	nl(Os),
+	write(Os,'}'),
+	close(Os).
+	%html(script(type('text/javascript'), [ \js_call('x.y.z'(hello, 42))])).
+	%www_open_url('http://www.webgraphviz.com/'),
+	%js_script("javascript:void(location.href='http://www.webgraphviz.com/');document.getElementById('graphviz_data').value='345329458960';",A,B).
+
+  
+drawGraph(Os,G,N,MHP):-
+    drawNodes(Os,G,N,MHP),
+    findall((P,Q),edge(P,Q,G),L),	
+    drawMarkedGraphDetails(L,Os).    
+
+
+drawGraph(Os,G):-
     findall((P,Q),edge(P,Q,G),L),
-    printTreeOutputAlternative(L,Os).    
+    drawGraphDetails(L,Os).    
     
 printTree([],_,_Os,_G).
 printTree([P|Ps],Pro,Os,G):-
@@ -126,8 +141,136 @@ filterNodes(L,Pro,Ls,ProUpdate):-
     subtract(L,Ls,Lp),
     union(Pro,Lp,ProUpdate).      %union
 
-printTreeOutputAlternative([],_Os).
-printTreeOutputAlternative([(P,Q)|Rs],Os):-
+
+drawNodes(Os,G,N,MHP):-
+	findall(Node,(node(Node,_,G)),Nodes),
+	findall(Nd,nd(Nd,_,G),Nds),
+	subtract(Nodes,Nds,ActiveNodes),
+	forall((member(P,ActiveNodes)),(
+	%nl(Os),    
+	(
+	    (node(P,class:barrier,_))->
+		(
+		    write(Os,P),
+		    write(Os,'[shape=rectangle,style=filled,color=green];'),
+		    nl(Os)    
+		);true
+	),
+
+       (
+	   (node(P,class:join,_);node(P,class:multijoin,_))->
+	       (
+		   write(Os,P),
+		   write(Os,'[shape=rectangle,style=filled,color=gray];'),
+		   nl(Os)    
+	       );true
+        ),
+	(
+	    node(P,class:decision,_)->
+	    (
+		write(Os,P),
+		write(Os,'[shape=diamond];'),
+		nl(Os)    
+	    );true
+        ),
+	(
+	    member(P,MHP)->
+	    (write(Os,P),
+	    write(Os,'[style=filled,color=blue];'),
+	    nl(Os)
+	);true
+    ),
+
+	(
+	    (P=N)->
+		(write(Os,P),
+		write(Os,'[style=filled,color=royalblue,fontcolor=red];'),
+		nl(Os)
+	    );true
+    )
+	)).
+
+
+
+drawMarkedGraphDetails([],_Os).
+drawMarkedGraphDetails([(P,Q)|Rs],Os):-
+    \+ arc(P,Q,_),!,		
+    write(Os,P),
+    write(Os,' -> '),
+    write(Os,Q),
+    write(Os,';'),
+    nl(Os),	
+    drawMarkedGraphDetails(Rs,Os).
+
+drawMarkedGraphDetails([(P,Q)|Rs],Os):-
+	drawMarkedGraphDetails(Rs,Os).
+
+
+
+
+%% drawMarkedGraphDetails([],_Os,_N,_).
+%% drawMarkedGraphDetails([(P,Q)|Rs],Os,N,MHP):-
+%%     \+ arc(P,Q,_),!,	
+%%     nl(Os),    
+%%     (
+%% 	(node(P,class:barrier,_))->
+%% 	(
+%%             write(Os,P),
+%% 	    write(Os,'[shape=rectangle,style=filled,color=cyan];'),
+%% 	    nl(Os)    
+%% 	);true
+
+%%     ),
+
+%%     (
+%% 	(node(P,class:join,_);node(P,class:multijoin,_))->
+%% 	(
+%%             write(Os,P),
+%% 	    write(Os,'[shape=rectangle,style=filled,color=gray];'),
+%% 	    nl(Os)    
+%% 	);true
+
+%%     ),
+
+%%     (
+%% 	node(P,class:decision,_)->
+%% 	(
+%%             write(Os,P),
+%% 	    write(Os,'[shape=diamond];'),
+%% 	    nl(Os)    
+%% 	);true
+
+%%     ),
+
+%%    (
+%% 	    member(P,MHP)->
+%% 	    (write(Os,P),
+%% 	    write(Os,'[style=filled,color=blue];'),
+%% 	    nl(Os)
+%% 	);true
+	
+%%     ),
+
+%%     (
+%% 	    (P=N)->
+%% 	    (write(Os,P),
+%% 	    write(Os,'[style=filled,color=blue];'),
+%% 	    nl(Os)
+%% 	);true
+	
+%%     ),
+	
+%%     write(Os,P),
+%%     write(Os,' -> '),
+%%     write(Os,Q),
+%%     write(Os,';'),
+%%     drawMarkedGraphDetails(Rs,Os,N,MHP).
+
+%% drawMarkedGraphDetails([(P,Q)|Rs],Os,N,MHP):-
+%% 	drawMarkedGraphDetails(Rs,Os,N,MHP).
+
+drawGraphDetails([],_Os).
+drawGraphDetails([(P,Q)|Rs],Os):-
     nl(Os),    
     (
 	(node(P,class:barrier,_))->
@@ -173,7 +316,7 @@ printTreeOutputAlternative([(P,Q)|Rs],Os):-
     write(Os,' -> '),
     write(Os,Q),
     write(Os,';'),
-    printTreeOutputAlternative(Rs,Os).
+    drawGraphDetails(Rs,Os).
     
 printTreeOutput(_P,[],_Os).
 printTreeOutput(P,[C|Cs],Os):-
@@ -192,29 +335,70 @@ validateTreeLogic:-
     L1=[],
     L2=[].
 
-%validateNodePath:-
-%    findall(A, node(A,_B,_C),L),
-%    findall(X, edge(X,_B1,_C1),E).	
- %   length(L,N),length(E,EN),
-  %  write("Nodes: "), write(N), write(" Edges: "), write(EN),nl, 		
-  %  findall(A, path(A,_B),P),length(P,PN),	
-  %  write("Path: "),write(PN),nl,	
-  %  findall(A,(node(A,_T,_G),\+ path(A,_)),L1),
-  %  findall(A,(node(A,_T1,_G1), path(A,_)),L2),
-  %  length(L1,N1),length(L2,N2),	
- %   write("The paths for the following tasks are known: "), write(N2),nl,
- %   write(L2),nl,	
- %   write("The paths for the following tasks are unknown: "),write(N1),nl,
- %   write(L1).	
-
-
 mhpQuery(Task,MHPList):-
-	write('MHP list of '),
-	write(Task),nl,
-	findall(Q,((mhp(Task,Q);mhp(Q,Task)),write(Q),nl),MHPList),
-	length(MHPList,L),
-	write('No of Parallel Tasks: '),
-	write(L).
+	findall(Q,((mhp(Task,Q);mhp(Q,Task))),MHPList).
 
-mhpAnomalyCheck.
+mhpQuery(Task):-
+	findall(Q,(mhp(Task,Q);mhp(Q,Task)),MHPList),
+	length(MHPList,L),
+	write('Task '),write(Task), write(' runs in parallel with '),write(L), write(' other tasks'),nl,
+	forall(member(M,MHPList),(write(M), write(' '))),nl.
+        
+save_mhpQuery(Task,Os):-
+	findall(Q,(mhp(Task,Q);mhp(Q,Task)),MHPList),
+	write(Os,'mhpOf_latest('), write(Os,Task), write(Os,','),write(Os,MHPList),write(Os,').'),nl(Os).
 	
+
+showStatistics:-
+	write('**********************************MHP Statistics************************************'),nl,
+	findall(N,node(N,class:exec,_),NodeList),
+	forall(member(N,NodeList),mhpQuery(N)).
+
+saveStatistics(F):-
+	mhpDir(MhpDir),
+	atom_concat(MhpDir,'test/outputs/',Dir),
+	atom_concat(Dir,F,FM1),
+	atom_concat(FM1,'.pl',FM),
+	open(FM,write,Os),
+	write(Os,':-module(statistics1,[mhpOf_latest/2]).'),	
+	nl(Os),
+	findall(N,node(N,class:exec,_),NodeList),
+	forall(member(N,NodeList),save_mhpQuery(N,Os)),
+	close(Os).
+
+
+compareTaskListAux([],_T2,[]).
+compareTaskListAux([T|Ts],T2,TD1):-
+	member(T,T2),!,
+	compareTaskListAux(Ts,T2,TD1).
+
+compareTaskListAux([T|Ts],T2,[T|TD]):-
+	compareTaskListAux(Ts,T2,TD).
+
+compareTaskList(T1,T2,TD1,TD2):-
+	compareTaskListAux(T1,T2,TD1),
+	compareTaskListAux(T2,T1,TD2),
+	((\+ TD1=[]);(\+ TD2=[])).
+
+
+saveRegression(TDiffList):-
+	open('test/outputs/regression.pl',write,Os),
+	write(Os,':-module(regression,[mhpOf/2]).'),	
+	nl(Os),
+	saveRegressionAux(TDiffList,Os),
+	close(Os).
+
+saveRegressionAux([],_Os).
+saveRegressionAux([(N,Td1,Td2)|DList],Os):-
+	write(Os,'regression('), write(Os,N), write(Os,','),write(Os,Td1), write(Os,','),write(Os,Td2),
+	write(Os,').'),nl(Os),
+        saveRegressionAux(DList,Os).
+
+
+compareStatistics(F1,F2):-
+	atom_concat('test/outputs/',F1,FM1),
+	atom_concat('test/outputs/',F2,FM2),
+	use_module(FM1),
+	use_module(FM2),
+	findall((N,TDiff1,TDiff2),(F1:mhpOf(N,TL),F2:mhpOf_latest(N,TL1),compareTaskList(TL,TL1,TDiff1,TDiff2)),TDiffList),
+	saveRegression(TDiffList).

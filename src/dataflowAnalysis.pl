@@ -1,13 +1,14 @@
 :- module(dataflowAnalysis,[main/0]).
-:- use_module(autogen/xmltreelogic).
-:- use_module(config/config).
-:- use_module(library(lists)).
 
 :- dynamic sync/2.
 :- dynamic atom/2.
 :- dynamic df/2.
 :- dynamic joinArity/2.
 :- dynamic barriers/2.
+
+:- use_module(autogen/graph).
+:- use_module(config/config).
+:- use_module(library(lists)).
 
 :- style_check(-singleton).
 :- style_check(-discontiguous).
@@ -27,8 +28,8 @@ main:-
 	retractall(barriers(_NN,_BB)),	
 	nb_setval(taskcounter,1),
 	nb_setval(barriercounter,1),
-
 	main_aux(GidList,Os,0,PairNo),
+	%main_aux([2],Os,0,PairNo),
 	(PairNo=0->
 	(write(Os,'mhp('),
 	write(Os,'Dummy1'),
@@ -47,15 +48,47 @@ main_aux([G|Gs],Os,C,P):-
 main_aux([_G|Gs],Os,C,P):-
     main_aux(Gs,Os,C,P).
 
+
+%*********************Initialization*************************************
+
+selectGraph(N,Nodes,Edges):-
+	findall((P,Q),edge(P,Q,N),MEdges),
+	findall(P,node(P,_,N),MNodes),
+	list_to_set(MEdges,Edges),
+	list_to_set(MNodes,Nodes).
+
+init_DataFlowSets([],[]).
+init_DataFlowSets([N|Ns],[(N,[])|FlowSets]):-
+    assertz(df(N,[])),
+    init_DataFlowSets(Ns,FlowSets).
+
+initWorklist(WL,N):-                 
+    findall(P,(node(P,_,N),\+ edge(_X,P,N)),List),
+    findall((P,Q),(member(P,List),edge(P,Q,N)),WL).
+
+%************************************************************************
+
+
 mhpmain(G,Os,Count,Countp):-
 
+    % it creates a sync database for each node P, i.e. sync(P,B) such that P synchronizes with barrier B. B can be run_to_completion.	
     createRelevantBarrierListForEachNode(G),
+
+    % creating atoms of all barrier and decision nodes	
     findall(B,((node(B,class:barrier,G);node(B,class:decision,G)),sync(_,B)),BList),
     findOrCreateBarrierAtom(BList,BAtomList),
 
-    forall(sync(N1,B1),(write(N1),write('-->'),write(B1),nl)),	
 
-    findall((N,L),((node(N,class:join,G);node(N,class:multijoin,G)),findall(E,(edge(E,N,G),edge(_,E,G)),EList),length(EList,L),L>0),EffectiveJoinPred),   
+    %% Discover the list of all barriers that a barrier node is associated	
+    findall(B,node(B,class:barrier,G),BarrierList),
+    forall(member(B,BarrierList),(		
+	getAllBarriersWithIndirectSync([B], G,[],Barriers),
+        assertz(barriers(B,Barriers)))),
+ 
+    findall((P,Bset),(node(P,T,G),\+ T=class:barrier,searchImmediatePreviousBarrierNode(P,G,Bl),list_to_set(Bl,Bset)),NodePredBarrier),	
+    forall(member((P,PBlist),NodePredBarrier),(findall(BB,(member(B,PBlist),barriers(B,BB)),BBList),flatten(BBList,Bdiff),list_to_set(Bdiff,PBset),assertz(barriers(P,PBset)))),	
+      
+    findall((N,L),((node(N,class:join,G);node(N,class:multijoin,G)),findall(E,(edge(E,N,G)),EList),length(EList,L),L>0),EffectiveJoinPred),   
     forall(member((N,L),EffectiveJoinPred),assertz(joinArity(N,L))),
 
     selectGraph(G,Nodes,Edges),
@@ -172,13 +205,16 @@ nonblockingJoinNode(Q,GraphNo):-
 	QDeg=0.
 
 joinNode(Q,GraphNo):-
-	(node(Q,class:join,GraphNo);node(Q,class:multijoin,GraphNo)).
+	node(Q,class:join,GraphNo).
 
 
 go_checkpoint.
 
 db_checkpoint(P,Q):-
-	(P=rbarrier2;Q=rbarrier2),
+	%(P=rbarrier2;Q=rbarrier2),
+	(P=rbarrier33;Q=rbarrier33),
+%	((node(P,class:join,_);node(P,class:multijoin,_));
+%	(node(Q,class:join,_);node(Q,class:multijoin,_))),    
 	go_checkpoint.
 
 db_checkpoint(_P,_Q).
@@ -192,6 +228,8 @@ forwardDataFlowAnalysis(WL,GraphNo):-
 
 	retractall(df(Q,QEntry)),
 	assertz(df(Q,QExit)),
+
+	debugWriteInfo(P,Q,Q,QEntry,QExit),
 
 	(blockingJoinNode(Q,GraphNo)->
 	(
@@ -209,10 +247,10 @@ forwardDataFlowAnalysis(WL,GraphNo):-
 		subtract(QExit,RedundantAtoms,QExitReduced)
 	    );QExitReduced=QExit
 	    ),
-	    updateWorklistAndDataflowSet(EdgeList,QExitReduced,Ws,WsAux,GraphNo)
+	    updateWorklistAndDataflowSet(P,EdgeList,QExitReduced,Ws,WsAux,GraphNo)
 	);WsAux=Ws),    
 
-	debugWriteInfo(P,Q,QEntry,QExit),
+	
   
 						%Algorithm 1: line 10-15
 	list_to_set(QEntry,QEntrySet),
@@ -224,8 +262,8 @@ forwardDataFlowAnalysis(WL,GraphNo):-
     		(
     		    findall((P,R),(edge(P,R,GraphNo),R\=Q),Successors),
 		    genFactsforParallelBranch(ResSet,ParResSet),
-		    debugWriteInfoParBranch(Successors, ParResSet),
-    		    updateWorklistAndDataflowSet(Successors,ParResSet,WsAux, WsUp,GraphNo)
+		   % debugWriteInfoParBranch(Successors, ParResSet),
+    		    updateWorklistAndDataflowSet(P,Successors,ParResSet,WsAux, WsUp,GraphNo)
     		);
     		(WsUp=WsAux)	
 	    ),
@@ -237,12 +275,37 @@ forwardDataFlowAnalysis(WL,GraphNo):-
 		(
 		    extractParAndSelfAtoms(QExit,ParAtoms,SelfAtoms),
 		    getDistantSymmetricParallelNodesAndDF(ParAtoms,SelfAtoms,P,Q,SymBranch),
-		    updateWLAndDF(SymBranch,GraphNo,WsUp,WMod)
+		    updateWLAndDF(P,Q,SymBranch,GraphNo,WsUp,WMod)
 		);
 		WMod=WsUp
 	    ),
-	    forwardDataFlowAnalysis(WMod,GraphNo).   
 
+	    %               Algorithm 1: new section about join node
+	    %% (joinNode(Q,GraphNo)->(
+	    %% 	%df(P,PEntry),
+	    %% 	extractParAndSelfAtoms(QExit,PPar,PSelf),
+	    %% 	union(PPar,PSelf,PAtoms),
+	    %% 	findall(Pred,(edge(Pred,Q,GraphNo),edge(_PPred,Pred,GraphNo)),Predecessors),
+	    %% 	set_diff(Predecessors,[P],PredSet),
+	    %% 	get_predAtomList(PredSet,PAtoms,GraphNo,CopySelf),
+
+	    %% 	%% findall((R,PSelfMod),( 
+	    %% 	%%     \+ R=P,edge(R,Q,GraphNo),edge(T,R,GraphNo),df(R,REntry),
+	    %% 	%%     findall(B,(member(B,REntry),atom(N,B),node(N,class:barrier,_)),BarList),
+	    %% 	%%     removeTasksHavingBarriers(PAtoms,BarList,PSelfMod)),CopySelf),
+	    %% 	updateWLAndDF(CopySelf,GraphNo,WMod,WUpdate)
+	    %%  );
+            %%  (WUpdate=WMod)
+	    %% ),
+	    WUpdate=WMod,
+	    forwardDataFlowAnalysis(WUpdate,GraphNo).   
+
+get_predAtomList([],_PAtoms,_GraphNo,[]).
+get_predAtomList([R|Rs],PAtoms,GraphNo,[(R,PSelfMod)|CopySelf]):-
+	getAllBarriersWithIndirectSync([R],GraphNo,[],BarList),
+	%findall(B,(member(B,REntry),atom(N,B),node(N,class:barrier,_)),BarList),
+	removeTasksHavingBarriers(PAtoms,BarList,PSelfMod),
+	get_predAtomList(Rs,PAtoms,GraphNo,CopySelf).
 
 
 extractParAndSelfAtoms([],[],[]).
@@ -290,7 +353,7 @@ getDistantSymmetricParallelNodesAndDF([X|Xs],S,P,Q,[(Mp,Sp)|Rs]):-
 	removeTasksHavingBarriers(S,BarrierList,Sp),
 	
         \+ subset(Sp,MEntry),!,
-	debugWrite(Mp,Sp,P,Q),
+	%debugWrite(Mp,Sp,P,Q),
 	getDistantSymmetricParallelNodesAndDF(Xs,S,P,Q,Rs).
 
 getDistantSymmetricParallelNodesAndDF([_X|Xs],S,P,Q,SymBranch):-
@@ -314,36 +377,6 @@ atoms_nodes([S|Ss]):-
 atoms_nodes([_S|Ss]):-
 	atoms_nodes(Ss).
 
-debugWrite(Mp,Sp,P,Q):-
-	debug_mode(true),
-	nl,write('Distant Branch: '), write(Mp),nl,
-	write('Atoms: '),write(Sp),nl,
-	atoms_nodes(Sp),nl,
-	write('...........................'),nl,!.
-
-debugWrite(_Mp,_Sp,_P,_Q).
-
-
-debugWriteInfoParBranch(Successors, ParResSet):-
-	debug_mode(true),
-	write('Sucessors: '),
-	findall(X,(member((_A,X),Successors),write(X),write(' ')),_LX),
-	nl,
-	write('Parallel Atoms :'), write(ParResSet),nl,
-	atoms_nodes(ParResSet),nl,nl,!.
-
-debugWriteInfoParBranch(_Successors, _ParResSet).
-
-debugWriteInfo(P,Q,QEntry,QExit):-
-	debug_mode(true),
-	nl,write('...........................'),nl,
-	write('Branch '),write(P), write(' to '), write(Q),nl,
-	write('Entry :'),write(QEntry),nl,
-	atoms_nodes(QEntry),nl,
-	write('Exit :'),write(QExit),nl,
-	atoms_nodes(QExit),nl,!.
-
-debugWriteInfo(_P,_Q,_QEntry,_QExit).	
 
 removeTasksHavingBarriers([],_B,[]).
 
@@ -364,19 +397,30 @@ removeTasksHavingBarriers([S|Ss],B,[S|Sp]):-
 	removeTasksHavingBarriers(Ss,B,Sp).
 
 
-updateWLAndDF([],_GraphNo,W,W).
-updateWLAndDF([(Mp,A)|Res],GraphNo,W,WR):-
+updateWLAndDF(_P,_Q,[],_GraphNo,W,W).
+updateWLAndDF(P,Q,[(Mp,A)|Res],GraphNo,W,WR):-
 	df(Mp,MEntry),
 	union(MEntry,A,NewMEntry),
-	
+
+	barriers(Mp,Barriers),
+	getAllKillSet(Barriers,NewMEntry,KillSet),
+	set_diff(NewMEntry,KillSet,RMod),
+
+	((\+ subset(RMod,MEntry))),!,          %%% check if it works or not
+
 	retractall(df(Mp,MEntry)),
-	assertz(df(Mp,NewMEntry)),
+	assertz(df(Mp,RMod)),
+
+	debugWriteInfo(P,Q,Mp,MEntry,RMod),
+
 	findall((R,Mp),edge(R,Mp,GraphNo),Edges),
 	union(W,Edges,WAux),
-	updateWLAndDF(Res,GraphNo,WAux,WR).
-	
+	updateWLAndDF(P,Q,Res,GraphNo,WAux,WR).
 
+updateWLAndDF(P,Q,[_|Res],GraphNo,W,WR):-	
+	updateWLAndDF(P,Q,Res,GraphNo,W,WR).
 
+%Lazy evaluation of atoms representing a decision node
 update_atoms_for_decision_node(P,Q,PExit,QEntry):-
 	node(P,class:decision,_),
 	atom(P,Patom),
@@ -386,22 +430,27 @@ update_atoms_for_decision_node(P,Q,PExit,QEntry):-
 
 update_atoms_for_decision_node(P,Q,PExit,PExit).
 
-updateWorklistAndDataflowSet([],_ResSet,W,W,_).
+updateWorklistAndDataflowSet(_S,[],_ResSet,W,W,_).
 
-updateWorklistAndDataflowSet([(P,Q)|Es],ResSet,W,WsUp,GraphNo):-
+updateWorklistAndDataflowSet(S,[(P,Q)|Es],ResSet,W,WsUp,GraphNo):-
 	df(Q,QEntry),
 	update_atoms_for_decision_node(P,Q,ResSet,ResSetMod),
-	\+ subset(ResSetMod,QEntry),!,
+	barriers(Q,Barriers),
+	getAllKillSet(Barriers,ResSetMod,KillSet),
+	set_diff(ResSetMod,KillSet,RMod),
+	((\+ subset(RMod,QEntry));node(P,class:join,GraphNo)),!,
+%	((\+ subset(RMod,QEntry));(QEntry=[],RMod=[])),!,
 	union(QEntry,ResSetMod,NewQEntry),
-%	findall(X,(member(X,NewQEntryAux),atom_concat('p',Y,X),member(Y,NewQEntryAux)),RedundantAtoms),
-%	subtract(NewQEntryAux,RedundantAtoms,NewQEntry),	
 	retractall(df(Q,QEntry)),
 	assertz(df(Q,NewQEntry)),
-	union(W,[(P,Q)],WAux),
-	updateWorklistAndDataflowSet(Es,ResSet,WAux,WsUp,GraphNo).
+	
+	debugWriteInfo(S,P,Q,QEntry,NewQEntry),
 
-updateWorklistAndDataflowSet([_|Es],ResSet,W,WsUp,GraphNo):-
-	updateWorklistAndDataflowSet(Es,ResSet,W,WsUp,GraphNo).
+	union(W,[(P,Q)],WAux),
+	updateWorklistAndDataflowSet(S,Es,ResSet,WAux,WsUp,GraphNo).
+
+updateWorklistAndDataflowSet(S,[_|Es],ResSet,W,WsUp,GraphNo):-
+	updateWorklistAndDataflowSet(S,Es,ResSet,W,WsUp,GraphNo).
 
 
 extractBarrierAtomTaskNode(X,B,N):-
@@ -489,10 +538,20 @@ findOrCreateTaskAtom(P,Atom):-
        atom(P,Atom)
     ).
 
-%% findForkBarriersComb(GraphNo,ForkBarrierList):-
-%%     findall(B,node(B,class:barrier,GraphNo),BList),
-%%     findall((P,Q),(edge(P,Q,GraphNo),member(Q,BList)),WList),
-%%     searchBackward(WList,[],ForkBarrierList,GraphNo).
+
+searchImmediatePreviousBarrierNodeAux([],GraphNo,[]).
+searchImmediatePreviousBarrierNodeAux([(P,Q)|Ws],GraphNo,[P|Ps]):-
+	 node(P,class:barrier,GraphNo),!,
+	 searchImmediatePreviousBarrierNodeAux(Ws,GraphNo,Ps).
+ 
+searchImmediatePreviousBarrierNodeAux([(P,_Q)|Ws],GraphNo,Ps):-
+	findall((R,P),(edge(R,P,GraphNo)),WList),
+	union(WList,Ws,WsAux),
+	searchImmediatePreviousBarrierNodeAux(WsAux,GraphNo,Ps).
+
+searchImmediatePreviousBarrierNode(P,GraphNo,BList):-
+	findall((Q,P),(edge(Q,P,GraphNo)),WList),
+	searchImmediatePreviousBarrierNodeAux(WList,GraphNo,BList).
 
 findForkBarriersComb(GraphNo,ForkBarrierList):-
     findall(B,(node(B,class:barrier,GraphNo);node(B,class:decision,GraphNo)),BList),
@@ -516,14 +575,6 @@ searchBackward([(P,Q)|Rs],Acc,ForkBarrierList,GraphNo):-
     union(Acc,[(P,Q)],AccAux),                       % Barrier synchronizes with another barrier
     searchBackward(Rs,AccAux,ForkBarrierList,GraphNo).
 
-%% searchBackward([(P,Q)|Rs],Acc,ForkBarrierList,GraphNo):-
-%%     node(P,T,GraphNo),
-%%     T=class:decision,!,
-%%     append(Acc,[(P,Q)],AccAux),                       % Decision node usually have two branches, and may synchronize with different barriers in different branches
-%%     findall((R,P),edge(R,P,GraphNo),BList),             % its treated as a placeholder for sucessive barrier
-%%     append(BList,Rs,RsAux),                                    % A change is being made here     
-%%     searchBackward(RsAux,AccAux,ForkBarrierList,GraphNo).
-
 
 searchBackward([(P,Q)|Rs],Acc,ForkBarrierList,GraphNo):-
     findall((R,Q),edge(R,P,GraphNo),BList),
@@ -541,20 +592,18 @@ kill_aux([P|Rs],B,Acc,KillSet):-
 kill_aux([P|Rs],B,Acc,KillSet):-
     kill_aux(Rs,B,Acc,KillSet).
 
-kill(P,Entry,[]):-
-    node(P,A,GraphNo),
-    member(A,[class:exec,class:decision,class:label,class:fork,class:multifork,class:join,class:multijoin,class:nop,class:return]),!.
+%kill(P,Entry,[]):-
+%    node(P,A,GraphNo),
+%    member(A,[class:exec,class:decision,class:label,class:fork,class:multifork,class:join,class:multijoin,class:nop,class:return]),!.
 
 
 kill(P,Entry,KillSet):-
-    node(P,class:barrier,GraphNo),
-    (barriers(P,BList)-> Barriers=BList;	
-    (
-	getAllBarriersWithIndirectSync([P], GraphNo,[],Barriers),
-        assertz(barriers(P,Barriers))
-     )),
-    getAllKillSet(Barriers,Entry,KillSet).	
-
+ %   node(P,class:barrier,GraphNo),
+    barriers(P,Barriers),!,
+    getAllKillSet(Barriers,Entry,KillSet).
+	
+kill(_P,_Entry,[]).
+    
 getAllKillSet([],_Entry,[]).
 getAllKillSet([P|Ps],Entry,KillSet):-		
 	atom(P,B),
@@ -618,20 +667,6 @@ gen(P,GraphNo,[]):-
     node(P,A,GraphNo).
 
 
-selectGraph(N,Nodes,Edges):-
-	findall((P,Q),edge(P,Q,N),MEdges),
-	findall(P,node(P,_,N),MNodes),
-	list_to_set(MEdges,Edges),
-	list_to_set(MNodes,Nodes).
-
-init_DataFlowSets([],[]).
-init_DataFlowSets([N|Ns],[(N,[])|FlowSets]):-
-    assertz(df(N,[])),
-    init_DataFlowSets(Ns,FlowSets).
-
-initWorklist(WL,N):-                    %%Need to modify the initialization of the worklist
-    findall(P,(node(P,_,N),\+ edge(_X,P,N),P=rstartActivity),List),
-    findall((P,Q),(member(P,List),edge(P,Q,N)),WL).
    
 
 writeToSyncDatabase([]).
@@ -663,3 +698,38 @@ find_and_remove((N,E1),[(N,_E2)|Ns],Rs):-
 find_and_remove((N,E1),[(N2,E2)|Ns],[(N2,E2)|Rs]):-
 	N\=N2,
 	find_and_remove((N,E1),Ns,Rs).
+
+%*************************Debug Write Info***********************************************
+
+debugWrite(Mp,Sp,P,Q):-
+	debug_mode(true),
+	nl,write('Distant Branch: '), write(Mp),nl,
+	write('Atoms: '),write(Sp),nl,
+	atoms_nodes(Sp),nl,
+	write('...........................'),nl,!.
+
+debugWrite(_Mp,_Sp,_P,_Q).
+
+
+debugWriteInfoParBranch(Successors, ParResSet):-
+	debug_mode(true),
+	write('Sucessors: '),
+	findall(X,(member((_A,X),Successors),write(X),write(' ')),_LX),
+	nl,
+	write('Parallel Atoms :'), write(ParResSet),nl,
+	atoms_nodes(ParResSet),nl,nl,!.
+
+debugWriteInfoParBranch(_Successors, _ParResSet).
+
+debugWriteInfo(P,Q,R,QEntry,QExit):-
+	debug_mode(true),
+	(R=rULMACCE_SELFO_start;R=rULMACCE_SELFO_cleanup),
+	nl,write('...........................'),nl,
+	write(P), write('->'), write(Q),
+	write(' | Node: '),write(R),
+	write('   | Entry :'),write(QEntry),
+	%atoms_nodes(QEntry),nl,
+	write(' | Exit :'),write(QExit),nl,
+	atoms_nodes(QExit),nl,!.
+
+debugWriteInfo(_P,_Q,_R,_QEntry,_QExit).	

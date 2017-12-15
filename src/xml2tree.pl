@@ -3,6 +3,7 @@
 :- use_module(config/config).
 
 :- dynamic nodepath/2.
+%:- dynamic node/1.
 
 %convertXML(+InputXML)
 %InputXML is the input dive file in xml format describing high-level design of a parallel application. It generates the following prolog files.
@@ -16,12 +17,13 @@ convertXML(InputXML):-
       atom_concat(MhpDir,'src/autogen',AutoGen),
       check_or_create_dir(AutoGen),
       atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),	
-      atom_concat(MhpDir,'src/autogen/xmltreelogic.pl',TreeLogic),	
+      atom_concat(MhpDir,'src/autogen/graph.pl',Graph),
+      atom_concat(MhpDir,'src/autogen/graphExtended.pl',ExtendedGraph),	
       atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),	
       open(BuildPath,write,OS),
-      open(TreeLogic,write,Tr),
+      open(Graph,write,Tr),
       open(TreeInfo,write,Tr1),
-      write(Tr,':-module(xmltreelogic,[node/3,edge/3,graphs/1]).'),
+      write(Tr,':-module(graph,[node/3,edge/3,graphs/1]).'),
       write(OS,':-module(buildpath,[path/2,func/3]).'),
       nl(OS),	
       write(OS,':- discontiguous path/2.'), nl(OS),	 	
@@ -31,16 +33,50 @@ convertXML(InputXML):-
       write(Tr,':- discontiguous edge/3.'),	
       nl(Tr),
       nl(Tr),
-      nl(OS),		
+
+      write(Tr,':- use_module("'),write(Tr,ExtendedGraph),write(Tr,'").'),nl(Tr),	 		
+      nl(OS),	
+%      retractall(node(_)),	
       visitMain(XML,GraphIdList,OS,Tr,Tr1),
+      	
       write(Tr,'graphs('),
       write(Tr,GraphIdList),
-      write(Tr,').'),
+      write(Tr,').'), nl(Tr),
+      close(Tr),	
+      use_module(Graph),	
+      extendGraph(ExtendedGraph,Graph),	
       retractall(nodepath(_N,_P)),	
-      close(Tr),
       close(Tr1),
       close(OS).
  
+
+% This predicate creates a unique start node and a barrier node for each graph, connecting start node to the barrier node and barrier node to all node that have no predecessors. Thus, it connects all disjoint graphs. 
+
+extendGraph(F,Graph):-
+	open(F,write,Os),
+	write(Os,':-module(graphExtended,[nd/3,arc/3]).'),	
+	nl(Os),
+	graphs(GIdList),
+	forall(member(G,GIdList),(
+	    atom_concat('start',G,Start),
+	    atom_concat('rbarrier0_',G,StartBarrier),	
+	    N1=nd(Start,class:label,G),
+            N2=nd(StartBarrier,class:barrier,G),
+            E1=arc(Start,StartBarrier,G),
+	    write(Os,N1),write(Os,'.'),nl(Os),
+	    write(Os,N2),write(Os,'.'),nl(Os),
+	    write(Os,E1),write(Os,'.'),nl(Os),
+	    findall(P,(node(P,_,G),\+ edge(_X,P,G)),List),
+	    findall(arc(StartBarrier,P,G),member(P,List),EList),
+	    forall(member(E,EList),(write(Os,E),write(Os,'.'),nl(Os)))
+	)),
+   	close(Os),
+	 open(Graph,append,Tr),
+	 write(Tr,'node(A,B,C):-nd(A,B,C).'),nl(Tr),	 		
+	 write(Tr,'edge(A,B,C):-arc(A,B,C).'),nl(Tr),
+	 close(Tr).
+
+
 
 
 visitMain([element(A,B,C)],GraphIdList,Os,Tr,Tr1):-	
@@ -144,11 +180,18 @@ filterNonElement([_X|Xs],Acc,Cp):-
 % FileDesc2 is the descriptor of xmltreelogic.pl in which node/3 and edge/3 are written
 
 
+if_unique(N,Np):-
+ 	N=startActivity,
+	nb_getval(graph,I),!,
+	atom_concat(N,I,Np).
+
+if_unique(N,N).
+
 visitList([],[],_L,_OS,_Tr).
 visitList([X|Xs],L,NList,OS,Tr):-
     X=element('class:label',[_=B],C),
     (
-       \+ member(B,NList)-> (writeNodeInfo(Tr,B,'class:label'),append(NList,[B],NListAux));NListAux=NList
+       \+ member(B,NList)-> (if_unique(B,B_uni),writeNodeInfo(Tr,B_uni,'class:label'),append(NList,[B_uni],NListAux));(NListAux=NList,B_uni=B)
 
     ),
     %writeOutput(OS,'class:label',B),
@@ -161,10 +204,10 @@ visitList([X|Xs],L,NList,OS,Tr):-
          writeNodeInfo(Tr,BarrierNode,'class:barrier'),               % Create a dummy barrier node
          Bcounterp is Bcounter+1,
          nb_setval(barrier,Bcounterp),
-         writeEdgeInfo(Tr,B,BarrierNode),
+         writeEdgeInfo(Tr,B_uni,BarrierNode),
 	 Parent=BarrierNode,
 	 append(NListAux,[BarrierNode],NListp)
-       ); (Parent=B,NListp=NListAux)
+       ); (Parent=B_uni,NListp=NListAux)
 
     ),
    visitElementList(Parent,Cp,NListp,NListUp,OS,Tr),!,
@@ -182,7 +225,8 @@ has_forknode(Cp):-
 has_joinnode(Cp):-
     (member(element('class:join',A,_B),Cp)).
 
-
+ifJoinFollowedByOtherNode([X,_Y|Ys]):-
+	X=element('class:join',_A,_B).
 
 %visitElementList(+Parent,+ElemList,+ElemListGen,-Accum,+FileDesc1,+FileDesc2)
 % Parent is the parent node
@@ -200,7 +244,7 @@ visitElementList(B,[X,Y|Xs],N,Np,OS,Tr):-
     visitElement(B,X,N,N1,OS,Tr),
     append(N,[P],N1),
     (
-      (has_forknode([Y|Xs]);(has_multipleJoinNode([Y|Xs])))->
+      (has_forknode([Y|Xs]);(has_multipleJoinNode([Y|Xs]));(ifJoinFollowedByOtherNode([Y|Xs])))->
        (
          nb_getval(barrier,Bcounter),
          atom_concat('barrier',Bcounter,BarrierNode),
@@ -369,6 +413,7 @@ writeInfo(Tr,A,B):-
 
 writeNodeInfo(Tr,N,T):-
      nb_getval(graph,I),
+     assertz(node(NN)),	
      atom_concat('r',N,NN),
      write(Tr,'node('),
      write(Tr,NN),

@@ -1,6 +1,6 @@
 BBDIR=/repo/emasabu/bb
 LLVMBIN=/repo/emasabu/tools/llvm/build-all/bin
-DIVE=experiments/graph1
+DIVE=experiments/graph1Bak
 COMPWITH=experiments/example1
 
 build:
@@ -32,8 +32,13 @@ setconfig:
 parseXML:
 	swipl --quiet -s 'src/xml2tree.pl' -t "parseXML('${COMPWITH}')"
 
-dotTree:
+dotG:
 	swipl --quiet -s 'src/tools.pl' -t printTreeinDot --
+
+mdotG:
+	swipl --quiet -s 'src/tools.pl' -t "drawMarkedGraph('${task}')" --
+	dot -Tpdf test/outputs/mhpGraph.dot -o test/outputs/mhpGraph.pdf
+	xdg-open test/outputs/mhpGraph.pdf
 
 clean:
 	rm -f *~ src/*~ config/*~ src/autogen/* config/config.pl bbTest/* test/outputs/*
