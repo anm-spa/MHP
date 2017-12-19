@@ -1,4 +1,5 @@
-:- module(dataflowAnalysis,[main/0]).
+:- module(dataflowAnalysis,[mainDefault/0,main/1]).
+:- use_module(helper).
 
 :- dynamic sync/2.
 :- dynamic atom/2.
@@ -6,7 +7,6 @@
 :- dynamic joinArity/2.
 :- dynamic barriers/2.
 
-:- use_module(autogen/graph).
 :- use_module(config/config).
 :- use_module(library(lists)).
 
@@ -14,39 +14,74 @@
 :- style_check(-discontiguous).
 
 
-debug_mode(true).
+debug_mode(false).
 
-main:-
+mainDefault:-
+	use_module(autogen/graph),
+	use_module(autogen/graphExtended),
 	graphs(GidList),
 	mhpDir(MhpDir),
 	atom_concat(MhpDir,'src/autogen/mhp.pl',File),
 	open(File,write,Os),
 	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),
+
+	atom_concat(MhpDir,'src/autogen/cht.pl',Cht),
+	open(Cht,write,ChtHandler),
+	write(ChtHandler,':-module(cht,[cht_lessthan/2]).'),nl(ChtHandler),nl(ChtHandler),
+
 	retractall(atom(_Node,_Atom)),
 	retractall(df(_N,_DF)),
 	retractall(joinArity(_Nd,_Arity)),	
 	retractall(barriers(_NN,_BB)),	
 	nb_setval(taskcounter,1),
 	nb_setval(barriercounter,1),
-	main_aux(GidList,Os,0,PairNo),
-	%main_aux([2],Os,0,PairNo),
-	(PairNo=0->
-	(write(Os,'mhp('),
-	write(Os,'Dummy1'),
-	write(Os,','),
-	write(Os,'Dummy2'),
-	write(Os,').')
-	);true),
-	close(Os).
+	main_aux(GidList,Os,ChtHandler,0,_PairNo),
+	close(Os),
+	close(ChtHandler).
 
-main_aux([],_,P,P).	
-main_aux([G|Gs],Os,C,P):-
+
+main(F):-
+	absolute_file_name(F,Graph),
+	use_module(Graph),
+	getTextualFileName(F,GFile),
+	atom_concat('graph_',GF,GFile),
+	file_directory_name(Graph,D),
+	atom_concats([D,'/','graphExtended_',GF,'.pl'],ExtGraph),
+	use_module(ExtGraph),
+
+	graphs(GidList),
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/mhp_',GF,'.pl'],MHPFile),
+	open(MHPFile,write,Os),
+	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),
+
+	atom_concats([MhpDir,'src/autogen/cht_',GF,'.pl'],ChtFile),
+	open(ChtFile,write,ChtHandler),
+	write(ChtHandler,':-module(cht,[cht_lessthan/2]).'),nl(ChtHandler),nl(ChtHandler),
+
+	retractall(atom(_Node,_Atom)),
+	retractall(df(_N,_DF)),
+	retractall(joinArity(_Nd,_Arity)),	
+	retractall(barriers(_NN,_BB)),	
+	nb_setval(taskcounter,1),
+	nb_setval(barriercounter,1),
+	main_aux(GidList,Os,ChtHandler,0,_PairNo),
+	close(Os),
+	close(ChtHandler).
+	%delete_import_module(dataflowAnalysis,Graph),
+	%delete_import_module(dataflowAnalysis,ExtGraph),
+
+
+
+
+main_aux([],_,_FileHandler,P,P).	
+main_aux([G|Gs],Os,FileHandler,C,P):-
     edge(_N,_N1,G),!,   % check if an edge in graph G exists	
-    mhpmain(G,Os,C,C1),
-    main_aux(Gs,Os,C1,P).
+    mhpmain(G,Os,FileHandler,C,C1),
+    main_aux(Gs,Os,FileHandler,C1,P).
 
-main_aux([_G|Gs],Os,C,P):-
-    main_aux(Gs,Os,C,P).
+main_aux([_G|Gs],Os,FileHandler,C,P):-
+    main_aux(Gs,Os,FileHandler,C,P).
 
 
 %*********************Initialization*************************************
@@ -69,7 +104,7 @@ initWorklist(WL,N):-
 %************************************************************************
 
 
-mhpmain(G,Os,Count,Countp):-
+mhpmain(G,Os,FileHandler,Count,Countp):-
 
     % it creates a sync database for each node P, i.e. sync(P,B) such that P synchronizes with barrier B. B can be run_to_completion.	
     createRelevantBarrierListForEachNode(G),
@@ -101,8 +136,17 @@ mhpmain(G,Os,Count,Countp):-
  
     obtain_concurrentTaskList(FlowSetsUp,ConcurrentTaskList,G),
     selectMHPNodes(ConcurrentTaskList,G,MHPList),
+
+    findall(P,(node(P,class:exec,G),member((P,PList),MHPList),PList=[]),LoneNodes),	
+    findall((P,dummyTask),(member(P,LoneNodes)),MHPAux),	
     refineMHPPair(MHPList,[],G,MHPTasks),	
-    debugWriteInfo(MHPTasks,Os,true,Count,Countp).
+    union(MHPTasks,MHPAux,MHPUnion),	
+    debugWriteInfo(MHPUnion,Os,true,Count,Countp),
+
+    % Non-concurrency analysis
+    cannotHappenTogether(G,PO),
+    storeCHTInfoInFile(FileHandler,PO).
+
 
 
 union_pairs([],PList,Acc,Rs):-
@@ -144,7 +188,7 @@ writeMHPInfo([(P,Q)|Ls],Os,Count,Countp):-
 	write(Os,Q),
 	write(Os,').'),
 	nl(Os),
-	C1 is Count+1,
+	(Q=dummyTask->C1=Count; C1 is Count+1),
 	writeMHPInfo(Ls,Os,C1,Countp).
 
 concurrentTaskList_aux([],CList,CList,_).
@@ -279,24 +323,6 @@ forwardDataFlowAnalysis(WL,GraphNo):-
 		);
 		WMod=WsUp
 	    ),
-
-	    %               Algorithm 1: new section about join node
-	    %% (joinNode(Q,GraphNo)->(
-	    %% 	%df(P,PEntry),
-	    %% 	extractParAndSelfAtoms(QExit,PPar,PSelf),
-	    %% 	union(PPar,PSelf,PAtoms),
-	    %% 	findall(Pred,(edge(Pred,Q,GraphNo),edge(_PPred,Pred,GraphNo)),Predecessors),
-	    %% 	set_diff(Predecessors,[P],PredSet),
-	    %% 	get_predAtomList(PredSet,PAtoms,GraphNo,CopySelf),
-
-	    %% 	%% findall((R,PSelfMod),( 
-	    %% 	%%     \+ R=P,edge(R,Q,GraphNo),edge(T,R,GraphNo),df(R,REntry),
-	    %% 	%%     findall(B,(member(B,REntry),atom(N,B),node(N,class:barrier,_)),BarList),
-	    %% 	%%     removeTasksHavingBarriers(PAtoms,BarList,PSelfMod)),CopySelf),
-	    %% 	updateWLAndDF(CopySelf,GraphNo,WMod,WUpdate)
-	    %%  );
-            %%  (WUpdate=WMod)
-	    %% ),
 	    WUpdate=WMod,
 	    forwardDataFlowAnalysis(WUpdate,GraphNo).   
 
@@ -484,14 +510,39 @@ extractTaskNode(X,N):-
 	node(N,Type,_),
 	\+ Type=class:barrier.
 
+extractSelfTaskNode(X,N):-
+	atom_concat(A,B,X),
+	atom_concat('*',_,B),
+	atom(N,A),
+	node(N,Type,_),
+	\+ Type=class:barrier.
+
+extractSelfTaskNode(X,N):-
+	atom(N,X),
+	node(N,Type,_),
+	\+ Type=class:barrier.
+
+
+extractAllTaskNodes([],[]).
+extractAllTaskNodes([T|Ts],[N|Rs]):-
+	extractTaskNode(T,N),
+	node(N,class:exec,_),!,
+	extractAllTaskNodes(Ts,Rs).
+
+extractAllTaskNodes([T|Ts],[N|Rs]):-
+	extractSelfTaskNode(T,N),
+	node(N,class:exec,_),!,
+	extractAllTaskNodes(Ts,Rs).
+
+extractAllTaskNodes([T|Ts],Rs):-
+	extractAllTaskNodes(Ts,Rs).
+
 
 applyTransferFunction(P,GraphNo,Entry,Exit):-
     gen(P,GraphNo,GenSet),
     kill(P,Entry,KillSet),
     subtract(Entry,KillSet,EntryAux),
     union(EntryAux,GenSet,Exit).
-%    findall(X,(member(X,ExitAux),atom_concat('p',Y,X),member(Y,ExitAux)),RedundantAtoms),
-%    subtract(ExitAux,RedundantAtoms,Exit).	
 
 
 combineTaskBarrierAtom(_Atom,[],GenSet,GenSet).
@@ -699,6 +750,49 @@ find_and_remove((N,E1),[(N2,E2)|Ns],[(N2,E2)|Rs]):-
 	N\=N2,
 	find_and_remove((N,E1),Ns,Rs).
 
+
+%***************************Non-concurrency analysis*************************************
+cannotHappenTogether(G,PO):-
+	findall(N,node(N,class:barrier,G),Nodes),
+	findall(N,nd(N,class:barrier,G),Nds),
+	subtract(Nodes,Nds,NodeList),
+        findall((N,FSet,[]),(member(N,NodeList),edge(Q,N,G),df(Q,QExit),kill(N,QExit,KillSet),extractAllTaskNodes(KillSet,F),list_to_set(F,FSet)),WL),
+	collectAllPO(WL,G,[],PO).
+ 	
+
+collectAllPO([],_G,PO,PO).
+collectAllPO([(_P,[],_V)|Ws],G,Acc,PO):-
+	!,
+	collectAllPO(Ws,G,Acc,PO).
+
+collectAllPO([(P,F,V)|Ws],G,Acc,PO):-
+	findall(Q,edge(P,Q,G),Succ),
+	subtract(Succ,V,NotVisitedSucc),
+	union(V,[P],Vp),
+	findall((Q,F,Vp),member(Q,NotVisitedSucc),WNext),
+	union(WNext,Ws,WUp),
+	collectPO_ifany(NotVisitedSucc,G,F,[],POAux),
+	union(Acc,POAux,AccM),
+	collectAllPO(WUp,G,AccM,PO).
+
+
+collectPO_ifany([],_G,_F,PO,PO).
+collectPO_ifany([M|Ms],G,F,Acc,PO):-
+	node(M,class:exec,G),!,
+	gen(M,G,Genset),
+	extractAllTaskNodes(Genset,Gen),
+	findall(cht(T,Tp),(member(T,F),member(Tp,Gen)),POAux),
+	union(Acc,POAux,AccM),
+	collectPO_ifany(Ms,G,F,AccM,PO).
+
+collectPO_ifany([M|Ms],G,F,Acc,PO):-
+	collectPO_ifany(Ms,G,F,Acc,PO).
+
+
+
+
+
+
 %*************************Debug Write Info***********************************************
 
 debugWrite(Mp,Sp,P,Q):-
@@ -733,3 +827,9 @@ debugWriteInfo(P,Q,R,QEntry,QExit):-
 	atoms_nodes(QExit),nl,!.
 
 debugWriteInfo(_P,_Q,_R,_QEntry,_QExit).	
+
+storeCHTInfoInFile(FileHandler,PO):-
+	forall(member(cht(T,Tp),PO),(
+	write(FileHandler,'cht_lessthan('),write(FileHandler,T),write(FileHandler,','),write(FileHandler,Tp),write(FileHandler,').'),
+	nl(FileHandler)
+	)).

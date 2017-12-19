@@ -1,9 +1,9 @@
-:- module(xml2tree,[convertXML/1,parseXML/1]).
+:- module(xml2tree,[convertXMLdefault/1,convertXMLs/1,parseXML/1]).
 :- use_module(library(sgml)).
 :- use_module(config/config).
+:- use_module(helper).
 
 :- dynamic nodepath/2.
-%:- dynamic node/1.
 
 %convertXML(+InputXML)
 %InputXML is the input dive file in xml format describing high-level design of a parallel application. It generates the following prolog files.
@@ -11,7 +11,7 @@
 % Predicate node have the following specification: node(Nodename,NodeClass in XML, GraphId in which Nodename belongs).
 % Predicate edge have the following specification: edge(Node1, Node2, GraphId in which this edge belongs).
 
-convertXML(InputXML):-
+convertXMLdefault(InputXML):-
       load_xml(InputXML,XML,[dialect(xml)]),
       mhpDir(MhpDir),
       atom_concat(MhpDir,'src/autogen',AutoGen),
@@ -23,14 +23,16 @@ convertXML(InputXML):-
       open(BuildPath,write,OS),
       open(Graph,write,Tr),
       open(TreeInfo,write,Tr1),
-      write(Tr,':-module(graph,[node/3,edge/3,graphs/1]).'),
+      write(Tr,':-module(graph,[node/3,edge/3,graphs/1,graphName/2]).'),
       write(OS,':-module(buildpath,[path/2,func/3]).'),
       nl(OS),	
       write(OS,':- discontiguous path/2.'), nl(OS),	 	
       write(OS,':- discontiguous func/3.'),
       nl(Tr),	
       write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
-      write(Tr,':- discontiguous edge/3.'),	
+      write(Tr,':- discontiguous edge/3.'),nl(Tr),	
+      write(Tr,':- discontiguous graphName/3.'),	
+
       nl(Tr),
       nl(Tr),
 
@@ -44,22 +46,78 @@ convertXML(InputXML):-
       write(Tr,').'), nl(Tr),
       close(Tr),	
       use_module(Graph),	
-      extendGraph(ExtendedGraph,Graph),	
+      extendGraph(ExtendedGraph,Graph,'graph'),	
       retractall(nodepath(_N,_P)),	
       close(Tr1),
       close(OS).
  
 
+convertXMLs(XMLs):-
+	mhpDir(MhpDir),
+	atom_concat(MhpDir,'src/autogen',AutoGen),
+	check_or_create_dir(AutoGen),
+	atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),
+	atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),
+	open(BuildPath,write,OS),
+	open(TreeInfo,write,Tr1),
+	write(OS,':-module(buildpath,[path/2,func/3]).'),
+	nl(OS),	
+	write(OS,':- discontiguous path/2.'), nl(OS),	 	
+	write(OS,':- discontiguous func/3.'),
+	nl(OS),
+	convertXMLAux(XMLs,AutoGen,OS,Tr1),
+	retractall(nodepath(_N,_P)),	
+	close(Tr1),
+	close(OS).
+
+convertXMLAux(InputXML,AutoGen,OS,Tr1):-
+	load_xml(InputXML,XML,[dialect(xml)]),
+	
+	getTextualFileName(InputXML,FileName),
+
+	atom_concats(['/graph_',FileName,'.pl'],GraphName),
+	atom_concats(['/graphExtended_',FileName,'.pl'],GraphExtended),	
+	atom_concat(AutoGen,GraphName,Graph),
+	atom_concat(AutoGen,GraphExtended,ExtendedGraph),
+    
+	open(Graph,write,Tr),
+	atom_concats([':-module(graph_',FileName,',[node/3,edge/3,graphs/1,graphName/2]).'], Module),
+	write(Tr,Module),
+        nl(Tr),	
+	write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
+	write(Tr,':- discontiguous edge/3.'), nl(Tr),	
+	write(Tr,':- discontiguous graphName/2.'),	
+	nl(Tr),
+	nl(Tr),
+
+	atom_concats(['graphExtended_',FileName],ExtGraph),
+	write(Tr,':- use_module("'),	
+	write(Tr,ExtGraph),write(Tr,'").'),nl(Tr),	 			
+	visitMain(XML,GraphIdList,OS,Tr,Tr1),
+      	
+	write(Tr,'graphs('),
+	write(Tr,GraphIdList),
+	write(Tr,').'), nl(Tr),
+	close(Tr),	
+	use_module(Graph),	
+	extendGraph(ExtendedGraph,Graph,FileName).      
+
+
 % This predicate creates a unique start node and a barrier node for each graph, connecting start node to the barrier node and barrier node to all node that have no predecessors. Thus, it connects all disjoint graphs. 
 
-extendGraph(F,Graph):-
+extendGraph(F,Graph,FileName):-
 	open(F,write,Os),
-	write(Os,':-module(graphExtended,[nd/3,arc/3]).'),	
+	(FileName='graph' -> 	atom_concats([':-module(graphExtended',',[nd/3,arc/3]).'], Module);
+	    atom_concats([':-module(graphExtended_',FileName,',[nd/3,arc/3]).'], Module)),
+	write(Os,Module),	
 	nl(Os),
+	write(Os,':- discontiguous nd/3.'),nl(Os),	 	
+	write(Os,':- discontiguous arc/3.'),nl(Os),	
+
 	graphs(GIdList),
 	forall(member(G,GIdList),(
-	    atom_concat('start',G,Start),
-	    atom_concat('rbarrier0_',G,StartBarrier),	
+	    atom_concats([FileName,'_start_',G],Start),
+	    atom_concats([FileName,'_rbarrier0_',G],StartBarrier),	
 	    N1=nd(Start,class:label,G),
             N2=nd(StartBarrier,class:barrier,G),
             E1=arc(Start,StartBarrier,G),
@@ -88,22 +146,32 @@ visitMain([element(A,B,C)],GraphIdList,Os,Tr,Tr1):-
 
 processMain([],_Tr1,_Os,_N,G,G,_Tr).
 processMain([X|Xs],Tr1,Os,N,Accum,G,Tr):-
-    %write('Processing starts'),nl,
-    processInfo(X,Tr1,Xp),
     nb_setval(graph,N),
-    %write(Xp),nl,	
-    retractall(nodepath(_N,_P)),	
-    visitGraph(Xp,Os,Tr,Tr1),
-    N1 is N+1,
-    append(Accum,[N],Accump),	
+    processInfo(X,Tr1,Tr,Xp),
+    (\+ (Xp=[])->	
+	(retractall(nodepath(_N,_P)),	
+	visitGraph(Xp,Os,Tr,Tr1),
+	N1 is N+1,
+	append(Accum,[N],Accump));
+	(
+	 Accump=Accum, N1 = N      
+	)
+    ),
     processMain(Xs,Tr1,Os,N1,Accump,G,Tr).
 
-processInfo(element('class:class',B,C),Tr1,Xp):-
+processInfo(element('class:class',B,C),Tr1,Os,Xp):-
     writeInfo(Tr1,'class:class',B),
+    nb_getval(graph,Id),
+    member(name=Name,B),
+    atom_concat('graphName(',Id,Temp1),
+    atom_concat(Temp1,',',Temp2),
+    atom_concat(Temp2,Name,Temp3),
+    atom_concat(Temp3,').',Temp4),	
+    write(Os,Temp4),nl(Os),
     filterNonElement(C,[],Cp),
     filterAuxInfo(Cp,Tr1,Xp).
 
-processInfo(element('structure:structure',_B,C),Tr1,Xp):-
+processInfo(element('structure:structure',_B,C),Tr1,_Os,Xp):-
     filterNonElement(C,[],Cp),
     filterAuxInfo(Cp,Tr1,Xp).
 
@@ -449,7 +517,3 @@ parseXML(InputXML):-
 
 
 
-check_or_create_dir(D):-
-	exists_directory(D),!.
-
-check_or_create_dir(D):- make_directory(D).
