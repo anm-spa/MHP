@@ -1,0 +1,46 @@
+#!/bin/bash
+
+unset -v xml
+unset -v actionGraph
+unset -v dflow
+unset -v arr
+
+function iterate_over_cl()
+{
+   unset -v arr	
+   arr=("$OPTARG")	
+   until [[ $(eval "echo \${$OPTIND}") =~ ^-.* ]] || [ -z $(eval "echo \${$OPTIND}") ]; do
+        arr+=($(eval "echo \${$OPTIND}"))
+        OPTIND=$((OPTIND + 1))
+   done
+   echo ${arr}
+}
+
+
+while getopts ":p:D:g:d" opt
+   do
+     case $opt in
+        d ) dflow=1;;
+        p ) xml="$(iterate_over_cl)"
+            ;;
+	D ) actionGraph="$(iterate_over_cl)"
+            ;;    
+	g)    	    
+     esac
+done
+
+for i in "${xml[@]}"
+do
+	echo "Parsing $i"
+	swipl --quiet -s 'src/xml2tree.pl' -t "convertXMLs('${i}')"
+	if [[ ${dflow} -eq 1 ]]; then
+		graph="src/autogen/graph_"$(echo ${i} | sed 's/.*\///' | sed 's/\.dive/\.pl/')
+		echo "Dataflow analysis of ${graph}"
+		swipl --quiet -s 'src/dataflowAnalysis.pl' -t "main('${graph}')" --
+	fi
+done
+for i in "${actionGraph[@]}"
+do
+	echo "Dataflow analysis of ${i}"
+	swipl --quiet -s 'src/dataflowAnalysis.pl' -t "main('${i}')" --
+done
