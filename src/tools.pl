@@ -1,82 +1,16 @@
-:- module(tools,[validateall/0,printTreeinDot/0, file_contains_func/2,build_all_task_spec/0,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedMHPGraph/1,drawMarkedCHTGraph/1]).
+:- module(tools,[validateall/0,printTreeinDot/0,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedMHPGraph/1,drawMarkedCHTGraph/1]).
 :- use_module(autogen/graph).
 :- use_module(autogen/graphExtended).
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
 :- use_module(autogen/mhp).
-:- use_module(library(http/js_write)).
+:- use_module(src/helper).
 
 validateall:-
     validateTreeLogic.
     %validateNodePath.
-    
-build_all_task_spec:-
-      mhpDir(MhpDir),
-      atom_concat(MhpDir,'src/autogen/taskSpec.pl',File),	
-      open(File,write,OS),
-      write(OS,':-module(taskSpec,[taskspec/3]).'),	
-      nl(OS),
-      write_task_spec(OS),	
-      close(OS).	
 
-
-
-write_task_spec(OS):-
-	findall((Node,Func,Path),(func(Node,PNode,Func),path(PNode,Path)),TaskInfo),
-      	build_task_info_and_write(OS,TaskInfo).
-
-build_task_info_and_write(_OS,[]).
-
-build_task_info_and_write(OS,[(Node,Func,Path)|Ts]):-
-	directory_files(Path,FileList),
-	filter_only_c_file(FileList,CFileList),
-	find_file_containing_func(CFileList,Path,Func,File),
-	write(OS,'taskspec('),	
-	term_to_atom(File,FileA),
-	write(OS,Node), write(OS,','),
-	write(OS,FileA), write(OS,',"'),
-  	write(OS,Func), write(OS,'").'), nl(OS),
-	build_task_info_and_write(OS,Ts).
-
-
-filter_only_c_file([],[]).
-filter_only_c_file([F|Fs],[F|Rs]):-
-      atom_concat(_Pre,'.c',F),!,
-      filter_only_c_file(Fs,Rs).	
-
-filter_only_c_file([_F|Fs],Rs):-	
-      filter_only_c_file(Fs,Rs).
-
-find_file_containing_func([],_P,_Func,'file_not_found').
-find_file_containing_func([F|_Fs],Path,Func,CompleteFileLoc):-
-	atom_concat(Path,F,CompleteFileLoc),
-      	file_contains_func(CompleteFileLoc,Func),!.
-
-find_file_containing_func([_F|Fs],Path,Func,R):-
-      	find_file_containing_func(Fs,Path,Func,R).
-
-% file_contains_func(+FileDesc, +Func)
-% Checks if FileDesc contains Func
-
-file_contains_func(File, Func) :-
-   open(File, read, _, [alias(input)]),
-   atom_length(Func,L),	
-   read_each_line(Func,L),!, close(input).
-
-file_contains_func(_File, _Func) :-close(input),fail.
-
-
-read_each_line(Func,L):-
-    read_line_to_string(input, String), 
-    String \= end_of_file,
-    atom_string(Line,String),
-    sub_atom(Line,_B,L,_X,Func),!.	
-
-read_each_line(Func,L):-
-    read_line_to_string(input, String), 
-    String \= end_of_file,
-    !,read_each_line(Func,L).
-
+   
 
 printTreeinDot:-
     %P=rstartActivity,

@@ -17,28 +17,35 @@ function iterate_over_cl()
 }
 
 
-while getopts ":p:D:g:d" opt
+while getopts ":p:D:g:djem" opt
    do
      case $opt in
         d ) dflow=1;;
         p ) xml="$(iterate_over_cl)"
-            ;;
+	     for i in "${xml[@]}"
+	     do
+		 echo "Parsing $i"
+		 swipl --quiet -s 'src/xml2tree.pl' -t "convertXML('${i}')"
+		 if [[ ${dflow} -eq 1 ]]; then
+		     graph="src/autogen/graph_"$(echo ${i} | sed 's/.*\///' | sed 's/\.dive/\.pl/')
+		     echo "Dataflow analysis of ${graph}"
+		     swipl --quiet -s 'src/dataflowAnalysis.pl' -t "main('${graph}')" --
+		 fi
+	     done
+	     swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
+             ;;
 	D ) actionGraph="$(iterate_over_cl)"
             ;;    
-	g)    	    
+	j)  swipl --quiet -s 'src/buildRacerScript.pl' -t "build_compile_commands" --   
+             ;;
+	     
+	e)  swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_events" --   
+             ;;
+  	m)  swipl --quiet -s 'src/buildRacerScript.pl' -t "getEventMap" --   
+             ;;
      esac
 done
 
-for i in "${xml[@]}"
-do
-	echo "Parsing $i"
-	swipl --quiet -s 'src/xml2tree.pl' -t "convertXMLs('${i}')"
-	if [[ ${dflow} -eq 1 ]]; then
-		graph="src/autogen/graph_"$(echo ${i} | sed 's/.*\///' | sed 's/\.dive/\.pl/')
-		echo "Dataflow analysis of ${graph}"
-		swipl --quiet -s 'src/dataflowAnalysis.pl' -t "main('${graph}')" --
-	fi
-done
 for i in "${actionGraph[@]}"
 do
 	echo "Dataflow analysis of ${i}"

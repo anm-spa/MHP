@@ -1,4 +1,4 @@
-:- module(xml2tree,[convertXMLdefault/1,convertXMLs/1,parseXML/1]).
+:- module(xml2tree,[convertXML/1,parseXML/1]).
 :- use_module(library(sgml)).
 :- use_module(config/config).
 :- use_module(helper).
@@ -11,66 +11,84 @@
 % Predicate node have the following specification: node(Nodename,NodeClass in XML, GraphId in which Nodename belongs).
 % Predicate edge have the following specification: edge(Node1, Node2, GraphId in which this edge belongs).
 
-convertXMLdefault(InputXML):-
-      load_xml(InputXML,XML,[dialect(xml)]),
-      mhpDir(MhpDir),
-      atom_concat(MhpDir,'src/autogen',AutoGen),
-      check_or_create_dir(AutoGen),
-      atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),	
-      atom_concat(MhpDir,'src/autogen/graph.pl',Graph),
-      atom_concat(MhpDir,'src/autogen/graphExtended.pl',ExtendedGraph),	
-      atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),	
-      open(BuildPath,write,OS),
-      open(Graph,write,Tr),
-      open(TreeInfo,write,Tr1),
-      write(Tr,':-module(graph,[node/3,edge/3,graphs/1,graphName/2]).'),
-      write(OS,':-module(buildpath,[path/2,func/3]).'),
-      nl(OS),	
-      write(OS,':- discontiguous path/2.'), nl(OS),	 	
-      write(OS,':- discontiguous func/3.'),
-      nl(Tr),	
-      write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
-      write(Tr,':- discontiguous edge/3.'),nl(Tr),	
-      write(Tr,':- discontiguous graphName/3.'),	
+%% convertXMLdefault(InputXML):-
+%%       load_xml(InputXML,XML,[dialect(xml)]),
+%%       mhpDir(MhpDir),
+%%       atom_concat(MhpDir,'src/autogen',AutoGen),
+%%       check_or_create_dir(AutoGen),
+%%       atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),	
+%%       atom_concat(MhpDir,'src/autogen/graph.pl',Graph),
+%%       atom_concat(MhpDir,'src/autogen/graphExtended.pl',ExtendedGraph),	
+%%       atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),	
+%%       open(BuildPath,write,OS),
+%%       open(Graph,write,Tr),
+%%       open(TreeInfo,write,Tr1),
+%%       write(Tr,':-module(graph,[node/3,edge/3,graphs/1,graphName/2]).'),
+%%       write(OS,':-module(buildpath,[path/2,func/3]).'),
+%%       nl(OS),	
+%%       write(OS,':- discontiguous path/2.'), nl(OS),	 	
+%%       write(OS,':- discontiguous func/3.'),
+%%       nl(Tr),	
+%%       write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
+%%       write(Tr,':- discontiguous edge/3.'),nl(Tr),	
+%%       write(Tr,':- discontiguous graphName/3.'),	
 
-      nl(Tr),
-      nl(Tr),
+%%       nl(Tr),
+%%       nl(Tr),
 
-      write(Tr,':- use_module("'),write(Tr,ExtendedGraph),write(Tr,'").'),nl(Tr),	 		
-      nl(OS),	
-%      retractall(node(_)),	
-      visitMain(XML,GraphIdList,OS,Tr,Tr1),
+%%       write(Tr,':- use_module("'),write(Tr,ExtendedGraph),write(Tr,'").'),nl(Tr),	 		
+%%       nl(OS),	
+%% %      retractall(node(_)),	
+%%       visitMain(XML,GraphIdList,OS,Tr,Tr1),
       	
-      write(Tr,'graphs('),
-      write(Tr,GraphIdList),
-      write(Tr,').'), nl(Tr),
-      close(Tr),	
-      use_module(Graph),	
-      extendGraph(ExtendedGraph,Graph,'graph'),	
-      retractall(nodepath(_N,_P)),	
-      close(Tr1),
-      close(OS).
+%%       write(Tr,'graphs('),
+%%       write(Tr,GraphIdList),
+%%       write(Tr,').'), nl(Tr),
+%%       close(Tr),	
+%%       use_module(Graph),	
+%%       extendGraph(ExtendedGraph,Graph,'graph'),	
+%%       retractall(nodepath(_N,_P)),	
+%%       close(Tr1),
+%%       close(OS).
  
 
-convertXMLs(XMLs):-
+convertXML(XMLs):-
 	mhpDir(MhpDir),
 	atom_concat(MhpDir,'src/autogen',AutoGen),
 	check_or_create_dir(AutoGen),
 	atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),
 	atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),
-	open(BuildPath,write,OS),
+	atom_concat(MhpDir,'src/autogen/graph.pl',GraphInfo),
+	
 	open(TreeInfo,write,Tr1),
-	write(OS,':-module(buildpath,[path/2,func/3]).'),
-	nl(OS),	
-	write(OS,':- discontiguous path/2.'), nl(OS),	 	
-	write(OS,':- discontiguous func/3.'),
-	nl(OS),
-	convertXMLAux(XMLs,AutoGen,OS,Tr1),
+	(exists_file(GraphInfo) ->(use_module(GraphInfo),open(GraphInfo,append,GrInfoStream));
+	    (
+		open(GraphInfo,write,GrInfoStream),
+		write(GrInfoStream,':-module(graph,[graphInfo/2,graphLoc/2]).'),
+		nl(GrInfoStream),
+		write(GrInfoStream,':- discontiguous graphInfo/2.'), nl(GrInfoStream),	 	
+		write(GrInfoStream,':- discontiguous graphLoc/2.'),
+		nl(GrInfoStream)
+	    )
+        ),
+
+	(exists_file(BuildPath) ->(use_module(BuildPath),open(BuildPath,append,PathStream));
+	    (
+		open(BuildPath,write,PathStream),
+		write(PathStream,':-module(buildpath,[path/2,func/3]).'),
+		nl(PathStream),	
+		write(PathStream,':- discontiguous path/2.'), nl(PathStream),	 	
+		write(PathStream,':- discontiguous func/3.'),
+		nl(PathStream)
+		    )
+        ),
+	convertXMLAux(XMLs,AutoGen,PathStream,Tr1,GrInfoStream),
 	retractall(nodepath(_N,_P)),	
 	close(Tr1),
-	close(OS).
+	close(GrInfoStream),
+	close(PathStream).
 
-convertXMLAux(InputXML,AutoGen,OS,Tr1):-
+convertXMLAux(InputXML,AutoGen,PathStream,Tr1,GrInfoStream):-
 	load_xml(InputXML,XML,[dialect(xml)]),
 	
 	getTextualFileName(InputXML,FileName),
@@ -81,20 +99,28 @@ convertXMLAux(InputXML,AutoGen,OS,Tr1):-
 	atom_concat(AutoGen,GraphExtended,ExtendedGraph),
     
 	open(Graph,write,Tr),
-	atom_concats([':-module(graph_',FileName,',[node/3,edge/3,graphs/1,graphName/2]).'], Module),
+	atom_concats([':-module(graph_',FileName,',[node/3,edge/3,graphs/1]).'], Module),
 	write(Tr,Module),
         nl(Tr),	
 	write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
 	write(Tr,':- discontiguous edge/3.'), nl(Tr),	
-	write(Tr,':- discontiguous graphName/2.'),	
-	nl(Tr),
+	%write(Tr,':- discontiguous graphName/2.'),	
+	%nl(Tr),
 	nl(Tr),
 
 	atom_concats(['graphExtended_',FileName],ExtGraph),
 	write(Tr,':- use_module("'),	
 	write(Tr,ExtGraph),write(Tr,'").'),nl(Tr),	 			
-	visitMain(XML,GraphIdList,OS,Tr,Tr1),
+	visitMain(XML,GraphIdList,PathStream,Tr,Tr1,GrInfoStream),
       	
+	forall(member(Id,GraphIdList),(
+	  catch(((graphLoc(Id,Graph),Status=exists);Status=notExists),_,Status=notExists),
+	  (Status=notExists -> (
+	      atom_concats(['graphLoc(',Id,',\'',Graph,'\').'],GLoc),
+	      write(GrInfoStream,GLoc),nl(GrInfoStream)
+	  );true)
+	)),
+	
 	write(Tr,'graphs('),
 	write(Tr,GraphIdList),
 	write(Tr,').'), nl(Tr),
@@ -137,43 +163,53 @@ extendGraph(F,Graph,FileName):-
 
 
 
-visitMain([element(A,B,C)],GraphIdList,Os,Tr,Tr1):-	
+visitMain([element(A,B,C)],GraphIdList,PathStream,Tr,Tr1,GrInfoStream):-	
     writeInfo(Tr1,A,B),
     filterNonElement(C,[],Cp),
     nb_setval(barrier,1),
     nb_setval(executableNode,1),
-    processMain(Cp,Tr1,Os,1,[],GraphIdList,Tr).
+    nb_setval(graph,0),
+    processMain(Cp,Tr1,PathStream,[],GraphIdList,Tr,GrInfoStream).
 
-processMain([],_Tr1,_Os,_N,G,G,_Tr).
-processMain([X|Xs],Tr1,Os,N,Accum,G,Tr):-
-    nb_setval(graph,N),
-    processInfo(X,Tr1,Tr,Xp),
+processMain([],_Tr1,_PathStream,G,G,_Tr,_GrInfoStream).
+processMain([X|Xs],Tr1,PathStream,Accum,G,Tr,GrInfoStream):-
+    processInfo(X,Tr1,GrInfoStream,Xp),
     (\+ (Xp=[])->	
 	(retractall(nodepath(_N,_P)),	
-	visitGraph(Xp,Os,Tr,Tr1),
-	N1 is N+1,
-	append(Accum,[N],Accump));
-	(
-	 Accump=Accum, N1 = N      
-	)
+	visitGraph(Xp,PathStream,Tr,Tr1),
+	nb_getval(graph,N),
+	append(Accum,[N],Accump)
+        );
+	Accump=Accum      
     ),
-    processMain(Xs,Tr1,Os,N1,Accump,G,Tr).
+    processMain(Xs,Tr1,PathStream,Accump,G,Tr,GrInfoStream).
 
 processInfo(element('class:class',B,C),Tr1,Os,Xp):-
-    writeInfo(Tr1,'class:class',B),
-    nb_getval(graph,Id),
-    member(name=Name,B),
-    atom_concat('graphName(',Id,Temp1),
-    atom_concat(Temp1,',',Temp2),
-    atom_concat(Temp2,Name,Temp3),
-    atom_concat(Temp3,').',Temp4),	
-    write(Os,Temp4),nl(Os),
-    filterNonElement(C,[],Cp),
-    filterAuxInfo(Cp,Tr1,Xp).
+	writeInfo(Tr1,'class:class',B),
+	filterNonElement(C,[],Cp),
+	filterAuxInfo(Cp,Tr1,Xp),
+	(\+ Xp=[] -> (
+	    member(name=Name,B),
+	    atom_concat('gr_',Name,TName),
+	    find_or_createGraphInfo(TName,Os,Id),
+	    nb_setval(graph,Id)
+	);true).
 
 processInfo(element('structure:structure',_B,C),Tr1,_Os,Xp):-
     filterNonElement(C,[],Cp),
     filterAuxInfo(Cp,Tr1,Xp).
+
+
+find_or_createGraphInfo(Name,Os,Id):-
+	catch((graphInfo(Id,Name),!),_E,fail).
+
+find_or_createGraphInfo(Name,Os,Id):-
+	catch((findall(I,graphInfo(I,_),Ilist),nb_getval(graph,II),union(Ilist,[II],IDList)),_,(nb_getval(graph,Imax),IDList=[Imax])),
+	max_list(IDList,Max),
+	Id is Max+1,
+	atom_concats(['graphInfo(',Id,',',Name,').'],GInfo),
+	write(Os,GInfo),nl(Os).
+
 
 % visitGraph(+XMLGraph,+FileDesc1,+FileDesc2,+FileDesc3)
 % XMLGraph contains list of items: element(A,B,C)

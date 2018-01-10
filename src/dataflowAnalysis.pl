@@ -53,11 +53,13 @@ main(F):-
 	mhpDir(MhpDir),
 	atom_concats([MhpDir,'src/autogen/mhp_',GF,'.pl'],MHPFile),
 	open(MHPFile,write,Os),
-	write(Os,':-module(mhp,[mhp/2]).'),nl(Os),nl(Os),
+	atom_concats([':-module(mhp_',GF,',[mhp/2]).'],MhpModule),
+	write(Os,MhpModule),nl(Os),nl(Os),
 
 	atom_concats([MhpDir,'src/autogen/cht_',GF,'.pl'],ChtFile),
 	open(ChtFile,write,ChtHandler),
-	write(ChtHandler,':-module(cht,[cht_lessthan/2]).'),nl(ChtHandler),nl(ChtHandler),
+	atom_concats([MhpDir,'src/autogen/cht_',GF,',[cht_lessthan/2]).'],ChtModule),
+	write(ChtHandler,ChtModule),nl(ChtHandler),nl(ChtHandler),
 
 	retractall(atom(_Node,_Atom)),
 	retractall(df(_N,_DF)),
