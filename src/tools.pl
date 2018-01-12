@@ -1,36 +1,81 @@
-:- module(tools,[validateall/0,printTreeinDot/0,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedMHPGraph/1,drawMarkedCHTGraph/1]).
-:- use_module(autogen/graph).
-:- use_module(autogen/graphExtended).
+:- module(tools,[drawGraphFromFile/1,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedMHPGraph/1,drawMarkedCHTGraph/1]).
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
-:- use_module(autogen/mhp).
+%:- use_module(autogen/mhp).
 :- use_module(src/helper).
 
-validateall:-
-    validateTreeLogic.
-    %validateNodePath.
 
-   
+% +F is the name of the graph like F='/path-to-dive-file' if something.dive is parsed successfully   
+drawGraphFromFile(F):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	drawGraphFromFileAux(File1),
+	write('graph is already written as dot file'),nl,
+	atom_concats(['dot -Tpdf outputs/graph_',FNameWithoutExt,'.dot',' -o outputs/graph_',FNameWithoutExt,'.pdf'],Command1),
+	atom_concats(['xdg-open outputs/graph_',FNameWithoutExt,'.pdf'],Command2),
+        shell(Command1,_S1),
+	shell(Command2,_S2),!.
 
-printTreeinDot:-
-    %P=rstartActivity,
+
+% +F is the absolute graph filename in prolog format 
+drawGraphFromFile(F):-
+	exists_file(F),!,
+	drawGraphFromFileAux(F).
+
+% +F is the name of the graph like F='something' if something.dive is parsed successfully   
+drawGraphFromFile(F):-
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/graph_',F,'.pl'],File1),	
+	exists_file(File1),!,
+	drawGraphFromFileAux(File1).
+
+% +F is the name of the graph like F='graph_graphName.pl' that exists in src/autogen directory  
+drawGraphFromFile(F):-
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/',F],File1),	
+	exists_file(File1),!,
+	drawGraphFromFileAux(File1).
+
+% +F is the name of the graph like F='src/autogen/graph_graphName.pl' that exists  
+drawGraphFromFile(F):-
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,F],File1),	
+	exists_file(File1),!,
+	drawGraphFromFileAux(File1).
+
+drawGraphFromFileAux(F):-
     mhpDir(MhpDir),
-    atom_concat(MhpDir,'test/outputs/treeoutput1.dot',File1),	
-    atom_concat(MhpDir,'test/outputs/treeoutput2.dot',File2),	
-    open(File1,write,Os1),
-    open(File2,write,Os2),
-    write(Os1,'digraph G {'),
-    write(Os2,'digraph G {'),
-    %printTree([P],[],Os1,1),
-    %printTree([P],[],Os2,2),
-    drawGraph(Os1,1),
-    drawGraph(Os2,2),	
-    nl(Os1),
-    nl(Os2),
-    write(Os1,'}'),
-    write(Os2,'}'),
-    close(Os1),
-    close(Os2).
+    getTextualFileName(F,FNameWithoutExt),	
+    atom_concat(MhpDir,'outputs/',Dir),	
+    atom_concats([Dir,FNameWithoutExt,'.dot'],DotFile),	
+    atom_concat('graph_',OwnName,FNameWithoutExt),	
+    atom_concats([MhpDir,'src/autogen/graphExtended_',OwnName,'.pl'],ExtendedGFile),	
+    write("Generating dot file: "),write(DotFile),nl,	
+    check_or_create_dir(Dir),	
+
+    open(DotFile,write,Os),
+    write(Os,'digraph G {'),
+    nl(Os),	
+    write(Os,'compound=true;'),	
+    nl(Os),
+
+    use_module(F,[node/3,edge/3,graphs/1]),	
+    use_module(ExtendedGFile,[arc/3]),	
+    use_module('src/autogen/graph.pl',[graphInfo/2]),	
+    graphs(Gs),	
+    forall(member(G,Gs),	
+    (drawGraph(Os,G),nl(Os))
+    ),
+    nl(Os),
+    write(Os,'}'),
+    abolish(node/3),	
+    abolish(edge/3),
+    abolish(arc/3),	
+    abolish(graphs/1),	
+    abolish(graphInfo/2),	
+    close(Os).	
 
 
 drawMarkedMHPGraph(N):-
@@ -79,7 +124,15 @@ drawCHTGraph(Os,G,N,CHT):-
 
 drawGraph(Os,G):-
     findall((P,Q),edge(P,Q,G),L),
-    drawGraphDetails(L,Os).    
+    graphInfo(G,GName),
+    atom_concat('gr_',GInfo,GName),	
+    atom_concats(['subgraph cluster_',GInfo,'{'],SubGraph),	
+    nl(Os),	
+    write(Os, SubGraph),nl(Os),	
+    drawGraphDetails(L,Os),
+    atom_concats(['label="',GInfo,'";'],Label),
+    nl(Os),	
+    write(Os,Label),nl(Os), write(Os,'}'),nl(Os).	
     
 printTree([],_,_Os,_G).
 printTree([P|Ps],Pro,Os,G):-
@@ -207,12 +260,12 @@ drawMarkedMHPGraphDetails([(P,Q)|Rs],Os):-
     nl(Os),	
     drawMarkedMHPGraphDetails(Rs,Os).
 
-drawMarkedMHPGraphDetails([(P,Q)|Rs],Os):-
+drawMarkedMHPGraphDetails([(_P,_Q)|Rs],Os):-
 	drawMarkedMHPGraphDetails(Rs,Os).
-
 
 drawGraphDetails([],_Os).
 drawGraphDetails([(P,Q)|Rs],Os):-
+    cond_include_nodes(P,Q),!,			
     nl(Os),    
     (
 	(node(P,class:barrier,_))->
@@ -259,6 +312,9 @@ drawGraphDetails([(P,Q)|Rs],Os):-
     write(Os,Q),
     write(Os,';'),
     drawGraphDetails(Rs,Os).
+
+drawGraphDetails([(_P,_Q)|Rs],Os):-
+	drawGraphDetails(Rs,Os).
     
 printTreeOutput(_P,[],_Os).
 printTreeOutput(P,[C|Cs],Os):-
@@ -268,6 +324,15 @@ printTreeOutput(P,[C|Cs],Os):-
     write(Os,C),
     write(Os,';'),
     printTreeOutput(P,Cs,Os).
+
+cond_include_nodes(P,Q):-
+	debug_mode(false),
+	\+ arc(P,Q,_).
+
+cond_include_nodes(_P,_Q):-
+	debug_mode(true).
+
+
 
 validateTreeLogic:-
     findall(A,(edge(A,_,N),\+node(A,_T1,N)),L1),

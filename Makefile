@@ -3,6 +3,13 @@ LLVMBIN=/repo/emasabu/tools/llvm/build-all/bin
 DIVE=experiments/dlMacCe.dive
 DIVE1=experiments/graph1Bak
 COMPWITH=experiments/example1
+DEBUGMODE=false
+
+install:
+	make clean
+	swipl --quiet -s 'config/createConfig.pl' -t "configure_mhp_tool('${BBDIR}','${LLVMBIN}','${DEBUGMODE}')"
+
+
 
 build:
 #	swipl --quiet -s 'config/createConfig.pl' -t "configureBB('${BBDIR}','${LLVMBIN}')"
@@ -29,7 +36,7 @@ tasks:
 	swipl --quiet -s 'src/tools.pl' -t test1 --
 
 setconfig:
-	swipl --quiet -s 'config/createConfig.pl' -t "configureBB('${BBDIR}','${LLVMBIN}')"
+	swipl --quiet -s 'config/createConfig.pl' -t "configure_mhp_tool('${BBDIR}','${LLVMBIN}')"
 
 
 parseXML:
@@ -50,5 +57,5 @@ chtdotG:
 
 
 clean:
-	rm -f *~ src/*~ config/*~ src/autogen/* config/config.pl bbTest/* test/outputs/*
+	rm -f *~ src/*~ config/*~ src/autogen/* config/config.pl bbTest/* outputs/*
 

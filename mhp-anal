@@ -25,14 +25,15 @@ while getopts ":p:D:g:djem" opt
 	     for i in "${xml[@]}"
 	     do
 		 echo "Parsing $i"
-		 swipl --quiet -s 'src/xml2tree.pl' -t "convertXML('${i}')"
+		 swipl --quiet -s 'src/xml2tree.pl' -t "parse_activity_graph('${i}')"
 		 if [[ ${dflow} -eq 1 ]]; then
 		     graph="src/autogen/graph_"$(echo ${i} | sed 's/.*\///' | sed 's/\.dive/\.pl/')
 		     echo "Dataflow analysis of ${graph}"
 		     swipl --quiet -s 'src/dataflowAnalysis.pl' -t "main('${graph}')" --
 		 fi
+		 swipl --quiet -s 'src/tools.pl' -t "drawGraphFromFile('${i}')"
 	     done
-	     swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
+	     #swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
              ;;
 	D ) actionGraph="$(iterate_over_cl)"
             ;;    

@@ -14,7 +14,7 @@ getTextualFileName(InputXML,FileName):-
 	atom_concat(D,'/',Dir),
 	atom_concat(Dir,F,L),
 	member(Ext,['.pl','.dive','']),
-	atom_concat(FileName,Ext,F).
+	atom_concat(FileName,Ext,F),!.
 
 
 atom_concats([],'').
