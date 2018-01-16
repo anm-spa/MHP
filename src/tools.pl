@@ -1,4 +1,12 @@
-:- module(tools,[drawGraphFromFile/1,mhpQuery/2,showStatistics/0,saveStatistics/1,drawMarkedMHPGraph/1,drawMarkedCHTGraph/1]).
+:- module(tools,[drawGraphFromFile/1,
+	drawGraphWithID/1,
+	mhpQuery/2,
+	mhpQuery/1,
+	showStatistics/0,
+	saveStatistics/1,
+	drawMarkedMHPGraph/2,
+	drawMarkedCHTGraph/1]).
+
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
 %:- use_module(autogen/mhp).
@@ -21,7 +29,9 @@ drawGraphFromFile(F):-
 
 % +F is the absolute graph filename in prolog format 
 drawGraphFromFile(F):-
-	exists_file(F),!,
+	exists_file(F),
+	getFileExtension(F,Ext),	
+	member(Ext,['.pl']),!,
 	drawGraphFromFileAux(F).
 
 % +F is the name of the graph like F='something' if something.dive is parsed successfully   
@@ -78,19 +88,76 @@ drawGraphFromFileAux(F):-
     close(Os).	
 
 
-drawMarkedMHPGraph(N):-
+drawGraphWithID(ID):-
+	use_module('src/autogen/graph.pl',[graphLoc/2,graphInfo/2]),	
+	findall((L,ID),graphLoc(ID,L),Graphs),
+	forall(member((L,ID),Graphs),(
+	   mhpDir(MhpDir),
+	   getTextualFileName(L,FNameWithoutExt),
+	   atom_concat(MhpDir,'outputs/',Dir),	
+	   atom_concats([Dir,FNameWithoutExt,'_',ID,'.dot'],DotFile),	
+	   atom_concat('graph_',OwnName,FNameWithoutExt),	
+	   atom_concats([MhpDir,'src/autogen/graphExtended_',OwnName,'.pl'],ExtendedGFile),	
+	   write("Generating dot file: "),write(DotFile),nl,	
+	   check_or_create_dir(Dir),	
+	   open(DotFile,write,Os),
+	   write(Os,'digraph G {'),
+	   nl(Os),	
+	   write(Os,'compound=true;'),	
+	   nl(Os),
+	   use_module(L,[node/3,edge/3,graphs/1]),	
+	   use_module(ExtendedGFile,[arc/3]),	
+	   drawGraph(Os,ID),nl(Os),
+	   nl(Os),
+	   write(Os,'}'),
+	   close(Os),
+	   abolish(node/3),	
+	   abolish(edge/3),
+	   abolish(arc/3),	
+	   abolish(graphs/1),
+	   
+	   atom_concats(['dot -Tpdf outputs/graph_',OwnName,'_',ID,'.dot',' -o outputs/graph_',OwnName,'_',ID,'.pdf'],Command1),
+	   atom_concats(['xdg-open outputs/graph_',OwnName,'_',ID,'.pdf'],Command2),
+           shell(Command1,_S1),
+	   shell(Command2,_S2)
+	)),
+	abolish(graphInfo/2),	
+	abolish(graphLoc/2).	
+	
+
+drawMarkedMHPGraph(N,F):-
+	getTextualFileName(F,FNameWithoutExt),	
 	mhpDir(MhpDir),
-	atom_concat(MhpDir,'test/outputs/',Temp1),	
-    	atom_concat(Temp1,'mhpGraph',Temp2),
-	atom_concat(Temp2,'.dot',File),
+	atom_concats([MhpDir,'outputs/mhp_',FNameWithoutExt,'.dot'],File),
 	open(File,write,Os),
-	write(Os,'digraph G {'),
+	write(Os,'digraph G {'),	
+
+
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
+	atom_concats([MhpDir,'src/autogen/graphExtended_',FNameWithoutExt,'.pl'],File2),	
+	exists_file(File1),!,
+	use_module(File1,[node/3,edge/3]),
+	use_module(File2,[nd/3,arc/3]),
 	node(N,_,G),
-	mhpQuery(N,MHPList),
+
+	mhpQuery(N,F,MHPList),
 	drawGraph(Os,G,N,MHPList),
 	nl(Os),
 	write(Os,'}'),
-	close(Os).
+	
+	abolish(node/3),
+	abolish(nd/3),
+	abolish(edge/3),
+	abolish(arc/3),
+	close(Os),
+
+	atom_concats(['dot -Tpdf outputs/mhp_',FNameWithoutExt,'.dot',' -o outputs/mhp_',FNameWithoutExt,'.pdf'],Command1),
+	atom_concats(['xdg-open outputs/mhp_',FNameWithoutExt,'.pdf'],Command2),
+        shell(Command1,_S1),
+	shell(Command2,_S2),!.
+
+
 
 
 drawMarkedCHTGraph(N):-
@@ -333,28 +400,77 @@ cond_include_nodes(_P,_Q):-
 	debug_mode(true).
 
 
-
-validateTreeLogic:-
-    findall(A,(edge(A,_,N),\+node(A,_T1,N)),L1),
-    findall(B,(edge(_A,B,N),\+node(B,_T,N)),L2),
-  %  write(L1),
-  %  write(L2),
-    L1=[],
-    L2=[].
-
-mhpQuery(Task,MHP):-
+mhpQuery(Task,F):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/mhp_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	use_module(File1,[mhp/2]),
 	findall(Q,((mhp(Task,Q);mhp(Q,Task))),MHPList),
-	subtract(MHPList,[dummyTask],MHP).
+	subtract(MHPList,[dummyTask],MHP),
+	length(MHP,L),
+	% print result
+	write('The following taska are running in parallel with '),write(Task),write(':'),nl,nl,
+	forall(member(M,MHP),(write(M), nl)),nl,
+        write('Total number of tasks running in parallel with '), write(Task),write(': '),write(L),nl,
+	abolish(mhp/2).
+
+
+mhpQuery(Task,F,MHP):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/mhp_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	use_module(File1,[mhp/2]),
+	findall(Q,((mhp(Task,Q);mhp(Q,Task))),MHPList),
+	subtract(MHPList,[dummyTask],MHP),
+	abolish(mhp/2).
+
+
+
+mhpQuery(F):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/mhp_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	use_module(File1,[mhp/2]),
+	findall((P,Q),mhp(P,Q),MHPList),
+	subtract(MHPList,[dummyTask],MHP),
+	abolish(mhp/2),
+	remove_duplicates(MHP,[],MHP_noDuplicate),
+	length(MHP_noDuplicate,L),
+	write("Total no of mhp-pairs: "),write(L),nl,
+
+	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File2),	
+	atom_concats([MhpDir,'src/autogen/graphExtended_',FNameWithoutExt,'.pl'],File3),	
+	exists_file(File2),
+	exists_file(File3),
+	use_module(File2,[node/3]),
+	use_module(File3,[nd/3]),
+	findall(N,(node(N,_Type,_G),\+ nd(N,_,_Gp)),Nodes),
+	abolish(node/3),
+	abolish(nd/3),
+	length(Nodes,L1),
+	write("Total no of tasks: "),write(L1),nl,nl.
+
+
+
+
+
+
+remove_duplicates([],Res,Res).
+remove_duplicates([(P,Q)|Mhp],Acc,Res):-
+	(\+ member((P,Q),Acc); \+ member((Q,P),Acc)),
+	union(Acc,[(P,Q)],Accp),!,
+	remove_duplicates(Mhp,Accp,Res).
+
+remove_duplicates([_|Mhp],Acc,Res):-
+	remove_duplicates(Mhp,Acc,Res).
+	
 
 chtQuery(Task,CHT):-
 	findall(Q,(cht_lessthan(Q,Task)),CHT).
 
-mhpQuery(Task):-
-	findall(Q,(mhp(Task,Q);mhp(Q,Task)),MHPList),
-	subtract(MHPList,[dummyTask],MHP),
-	length(MHP,L),
-	write('Task '),write(Task), write(' runs in parallel with '),write(L), write(' other tasks'),nl,
-	forall(member(M,MHP),(write(M), write(' '))),nl.
         
 save_mhpQuery(Task,Os):-
 	findall(Q,(mhp(Task,Q);mhp(Q,Task)),MHPList),

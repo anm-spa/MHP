@@ -14,7 +14,7 @@
 :- style_check(-discontiguous).
 
 
-debug_mode(false).
+%debug_mode(false).
 
 mainDefault:-
 	use_module(autogen/graph),

@@ -1,4 +1,4 @@
-:- module(helper,[check_or_create_dir/1,getTextualFileName/2,atom_concats/2,filter_only_c_file/2,filterFilesWithExtensions/3,atom_prefix_pattern/4]).
+:- module(helper,[check_or_create_dir/1,getTextualFileName/2,atom_concats/2,filter_only_c_file/2,filterFilesWithExtensions/3,atom_prefix_pattern/4,getFileExtension/2]).
 
 check_or_create_dir(D):-
 	exists_directory(D),!.
@@ -16,6 +16,13 @@ getTextualFileName(InputXML,FileName):-
 	member(Ext,['.pl','.dive','']),
 	atom_concat(FileName,Ext,F),!.
 
+getFileExtension(File,Ext):-
+	absolute_file_name(File,L), 
+	file_directory_name(L,D), 
+	atom_concat(D,'/',Dir),
+	atom_concat(Dir,F,L),
+	member(Ext,['.pl','.dive','']),
+	atom_concat(_FileName,Ext,F),!.
 
 atom_concats([],'').
 atom_concats([U],U).

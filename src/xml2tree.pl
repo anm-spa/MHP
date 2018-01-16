@@ -16,7 +16,7 @@ parse_activity_graph(XMLs):-
 	atom_concat(MhpDir,'src/autogen',AutoGen),
 	check_or_create_dir(AutoGen),
 	atom_concat(MhpDir,'src/autogen/buildpath.pl',BuildPath),
-	atom_concat(MhpDir,'src/autogen/xmltreeInfo.pl',TreeInfo),
+	atom_concat(MhpDir,'src/autogen/graph_aux_info.pl',TreeInfo),
 	atom_concat(MhpDir,'src/autogen/graph.pl',GraphInfo),
 	
 	open(TreeInfo,write,Tr1),
@@ -43,7 +43,7 @@ parse_activity_graph(XMLs):-
         ),
 	parse_activity_graph_aux(XMLs,AutoGen,PathStream,Tr1,GrInfoStream),
 	retractall(nodepath(_N,_P)),	
-	close(Tr1),
+
 	close(GrInfoStream),
 	close(PathStream).
 
@@ -56,9 +56,13 @@ parse_activity_graph_aux(InputXML,AutoGen,PathStream,Tr1,GrInfoStream):-
 	atom_concats(['/graphExtended_',FileName,'.pl'],GraphExtended),	
 	atom_concat(AutoGen,GraphName,Graph),
 	atom_concat(AutoGen,GraphExtended,ExtendedGraph),
-    
+
+
+	atom_concats([':-module(graph_aux_info,[info/2]).'], InfoModule),
+	write(Tr1,InfoModule), nl(Tr1),
+
 	open(Graph,write,Tr),
-	atom_concats([':-module(graph_',FileName,',[node/3,edge/3,graphs/1]).'], Module),
+	atom_concats([':-module(graph_',FileName,',[node/3,edge/3,graphs/1,eventMap/2]).'], Module),
 	write(Tr,Module),
         nl(Tr),	
 	write(Tr,':- discontiguous node/3.'),nl(Tr),	 	
@@ -83,6 +87,19 @@ parse_activity_graph_aux(InputXML,AutoGen,PathStream,Tr1,GrInfoStream):-
 	write(Tr,'graphs('),
 	write(Tr,GraphIdList),
 	write(Tr,').'), nl(Tr),
+
+	close(Tr1),
+	mhpDir(MhpDir),
+	atom_concat(MhpDir,'src/autogen/graph_aux_info.pl',TreeInfo),
+
+	use_module(TreeInfo,[info/2]),
+	findall((Task,Event),(info('class:map',L),member(toLabel=EN,L),atom_concat('r',EN,Task),downcase_atom(EN,Event)),AllEvents),
+	forall(member((Task,Event),AllEvents), (
+	write(Tr,'eventMap('),
+	write(Tr,Task),write(Tr,', '),write(Tr,Event),write(Tr,').'),nl(Tr)
+	)),
+	abolish(info/2),
+
 	close(Tr),		
 	extendGraph(ExtendedGraph,Graph,FileName).      
 
@@ -471,14 +488,15 @@ writeFuncOutput(OS,ParentNode,Node,FuncName):-
     write(OS,'").'),
     nl(OS).
 
-    
-writeInfo(Tr,A,B):-
-     write(Tr,'info('),
-     write(Tr,A),
-     write(Tr,','),
-     write(Tr,B),
+
+writeInfo(Tr,'class:map',B):-
+     write(Tr,"info('class:map',"),
+     term_string(B,BList),
+     write(Tr,BList),
      write(Tr,').'),
-     nl(Tr).
+     nl(Tr),!.
+
+writeInfo(_Tr,_T,_B).
 
 writeNodeInfo(Tr,N,T):-
      nb_getval(graph,I),

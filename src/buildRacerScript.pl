@@ -2,8 +2,8 @@
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(config/config).
-:- use_module(autogen/taskSpec).
-:- use_module(autogen/mhp).
+%:- use_module(autogen/taskSpec).
+%:- use_module(autogen/mhp).
 :- use_module(compile_options).
 :- use_module(src/helper).
 
@@ -166,7 +166,7 @@ map_events_to_tasks:-
 	absolute_file_name('src/autogen/events.pl',EventFname),
 	open(EventFname,write,EventFdesc),
 
-	write(EventFdesc,":-module(events,[eventFound/4])."),
+	write(EventFdesc,":-module(events,[events/4])."),
 	nl(EventFdesc),
 	
 
@@ -182,7 +182,8 @@ map_events_to_tasks:-
 	forall(member((T,E),EventTasksFound),(
 	  convertAppropriateCase(E,Ep),
 	  member((T,G,Id),TG),
-	  atom_concats(['events(',G,',',Id,',',T,',',Ep,').'],Ev),
+	  term_to_atom(G,Ga),
+	  atom_concats(['events(',Ga,',',Id,',',T,',',Ep,').'],Ev),
 	  write(EventFdesc,Ev),
 	  nl(EventFdesc)
 	)),
