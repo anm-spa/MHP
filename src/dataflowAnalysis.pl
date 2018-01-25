@@ -58,7 +58,7 @@ main(F):-
 
 	atom_concats([MhpDir,'src/autogen/cht_',GF,'.pl'],ChtFile),
 	open(ChtFile,write,ChtHandler),
-	atom_concats([MhpDir,'src/autogen/cht_',GF,',[cht_lessthan/2]).'],ChtModule),
+	atom_concats([':-module(cht_',GF,',[cht_lessthan/2]).'],ChtModule),
 	write(ChtHandler,ChtModule),nl(ChtHandler),nl(ChtHandler),
 
 	retractall(atom(_Node,_Atom)),

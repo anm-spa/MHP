@@ -1,213 +1,212 @@
-:- module(tools,[drawGraphFromFile/1,
-	drawGraphWithID/1,
+:- module(tools,[draw_action_graph/1,
+	draw_mhp_graph/2,
+	draw_cht_graph/2,
 	mhpQuery/2,
 	mhpQuery/1,
 	showStatistics/0,
-	saveStatistics/1,
-	drawMarkedMHPGraph/2,
-	drawMarkedCHTGraph/1]).
+	saveStatistics/1]).
 
 :- use_module(autogen/buildpath).
 :- use_module(config/config).
-%:- use_module(autogen/mhp).
 :- use_module(src/helper).
 
+:- dynamic marking/2.
 
-% +F is the name of the graph like F='/path-to-dive-file' if something.dive is parsed successfully   
-drawGraphFromFile(F):-
-	getTextualFileName(F,FNameWithoutExt),	
-	mhpDir(MhpDir),
-	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
-	exists_file(File1),!,
-	drawGraphFromFileAux(File1),
+
+draw_action_graph(F):-
+	find_graph_in_prolog_format(F,File1),
+	retractall(marking(_,_)),
+	draw_action_graphAux(File1),
+	getTextualFileName(File1,FNameWithoutExt),	
 	write('graph is already written as dot file'),nl,
-	atom_concats(['dot -Tpdf outputs/graph_',FNameWithoutExt,'.dot',' -o outputs/graph_',FNameWithoutExt,'.pdf'],Command1),
-	atom_concats(['xdg-open outputs/graph_',FNameWithoutExt,'.pdf'],Command2),
+	atom_concats(['dot -Tpdf outputs/',FNameWithoutExt,'.dot',' -o outputs/',FNameWithoutExt,'.pdf'],Command1),
+	atom_concats(['xdg-open outputs/',FNameWithoutExt,'.pdf'],Command2),
+	retractall(marking(_,_)),
         shell(Command1,_S1),
 	shell(Command2,_S2),!.
 
+draw_mhp_graph(Task,F):-
+	find_graph_in_prolog_format(F,File),
+	getTextualFileName(File,FNameWithoutExt),
+	atom_concat('graph_',FAbs,FNameWithoutExt),
+	mhpQuery(Task,FAbs,MHP),
+	retractall(marking(_,_)),
+	assertz(marking(Task,MHP)),
+	draw_action_graphAux(File),
+	atom_concats(['dot -Tpdf outputs/',FNameWithoutExt,'.dot',' -o outputs/',FNameWithoutExt,'.pdf'],Command1),
+	atom_concats(['xdg-open outputs/',FNameWithoutExt,'.pdf'],Command2),
+	retractall(marking(_,_)),
+        shell(Command1,_S1),
+	shell(Command2,_S2).
 
-% +F is the absolute graph filename in prolog format 
-drawGraphFromFile(F):-
-	exists_file(F),
-	getFileExtension(F,Ext),	
-	member(Ext,['.pl']),!,
-	drawGraphFromFileAux(F).
+draw_cht_graph(Task,F):-
+	find_graph_in_prolog_format(F,File),
+	getTextualFileName(File,FNameWithoutExt),
+	atom_concat('graph_',FAbs,FNameWithoutExt),
+	chtQuery(Task,FAbs,CHT),
+	retractall(marking(_,_)),
+	assertz(marking(Task,CHT)),
+	draw_action_graphAux(File),
+	atom_concats(['dot -Tpdf outputs/',FNameWithoutExt,'.dot',' -o outputs/',FNameWithoutExt,'.pdf'],Command1),
+	atom_concats(['xdg-open outputs/',FNameWithoutExt,'.pdf'],Command2),
+	retractall(marking(_,_)),
+        shell(Command1,_S1),
+	shell(Command2,_S2).
 
-% +F is the name of the graph like F='something' if something.dive is parsed successfully   
-drawGraphFromFile(F):-
+
+draw_action_graphAux(F):-
 	mhpDir(MhpDir),
-	atom_concats([MhpDir,'src/autogen/graph_',F,'.pl'],File1),	
-	exists_file(File1),!,
-	drawGraphFromFileAux(File1).
-
-% +F is the name of the graph like F='graph_graphName.pl' that exists in src/autogen directory  
-drawGraphFromFile(F):-
-	mhpDir(MhpDir),
-	atom_concats([MhpDir,'src/autogen/',F],File1),	
-	exists_file(File1),!,
-	drawGraphFromFileAux(File1).
-
-% +F is the name of the graph like F='src/autogen/graph_graphName.pl' that exists  
-drawGraphFromFile(F):-
-	mhpDir(MhpDir),
-	atom_concats([MhpDir,F],File1),	
-	exists_file(File1),!,
-	drawGraphFromFileAux(File1).
-
-drawGraphFromFileAux(F):-
-    mhpDir(MhpDir),
-    getTextualFileName(F,FNameWithoutExt),	
-    atom_concat(MhpDir,'outputs/',Dir),	
-    atom_concats([Dir,FNameWithoutExt,'.dot'],DotFile),	
-    atom_concat('graph_',OwnName,FNameWithoutExt),	
-    atom_concats([MhpDir,'src/autogen/graphExtended_',OwnName,'.pl'],ExtendedGFile),	
-    write("Generating dot file: "),write(DotFile),nl,	
-    check_or_create_dir(Dir),	
-
-    open(DotFile,write,Os),
-    write(Os,'digraph G {'),
-    nl(Os),	
-    write(Os,'compound=true;'),	
-    nl(Os),
-
-    use_module(F,[node/3,edge/3,graphs/1]),	
-    use_module(ExtendedGFile,[arc/3]),	
-    use_module('src/autogen/graph.pl',[graphInfo/2]),	
-    graphs(Gs),	
-    forall(member(G,Gs),	
-    (drawGraph(Os,G),nl(Os))
-    ),
-    nl(Os),
-    write(Os,'}'),
-    abolish(node/3),	
-    abolish(edge/3),
-    abolish(arc/3),	
-    abolish(graphs/1),	
-    abolish(graphInfo/2),	
-    close(Os).	
-
-
-drawGraphWithID(ID):-
-	use_module('src/autogen/graph.pl',[graphLoc/2,graphInfo/2]),	
-	findall((L,ID),graphLoc(ID,L),Graphs),
-	forall(member((L,ID),Graphs),(
-	   mhpDir(MhpDir),
-	   getTextualFileName(L,FNameWithoutExt),
-	   atom_concat(MhpDir,'outputs/',Dir),	
-	   atom_concats([Dir,FNameWithoutExt,'_',ID,'.dot'],DotFile),	
-	   atom_concat('graph_',OwnName,FNameWithoutExt),	
-	   atom_concats([MhpDir,'src/autogen/graphExtended_',OwnName,'.pl'],ExtendedGFile),	
-	   write("Generating dot file: "),write(DotFile),nl,	
-	   check_or_create_dir(Dir),	
-	   open(DotFile,write,Os),
-	   write(Os,'digraph G {'),
-	   nl(Os),	
-	   write(Os,'compound=true;'),	
-	   nl(Os),
-	   use_module(L,[node/3,edge/3,graphs/1]),	
-	   use_module(ExtendedGFile,[arc/3]),	
-	   drawGraph(Os,ID),nl(Os),
-	   nl(Os),
-	   write(Os,'}'),
-	   close(Os),
-	   abolish(node/3),	
-	   abolish(edge/3),
-	   abolish(arc/3),	
-	   abolish(graphs/1),
-	   
-	   atom_concats(['dot -Tpdf outputs/graph_',OwnName,'_',ID,'.dot',' -o outputs/graph_',OwnName,'_',ID,'.pdf'],Command1),
-	   atom_concats(['xdg-open outputs/graph_',OwnName,'_',ID,'.pdf'],Command2),
-           shell(Command1,_S1),
-	   shell(Command2,_S2)
-	)),
-	abolish(graphInfo/2),	
-	abolish(graphLoc/2).	
-	
-
-drawMarkedMHPGraph(N,F):-
 	getTextualFileName(F,FNameWithoutExt),	
-	mhpDir(MhpDir),
-	atom_concats([MhpDir,'outputs/mhp_',FNameWithoutExt,'.dot'],File),
-	open(File,write,Os),
-	write(Os,'digraph G {'),	
+	atom_concat(MhpDir,'outputs/',Dir),	
+	atom_concats([Dir,FNameWithoutExt,'.dot'],DotFile),	
+	atom_concat('graph_',OwnName,FNameWithoutExt),	
+	atom_concats([MhpDir,'src/autogen/graphExtended_',OwnName,'.pl'],ExtendedGFile),	
+	write("Generating dot file: "),write(DotFile),nl,	
+	check_or_create_dir(Dir),	
+	
+	open(DotFile,write,Os),
+	write(Os,'digraph G {'),
+	nl(Os),	
+	write(Os,'compound=true;'),	
+	nl(Os),
 
-
-	mhpDir(MhpDir),
-	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
-	atom_concats([MhpDir,'src/autogen/graphExtended_',FNameWithoutExt,'.pl'],File2),	
-	exists_file(File1),!,
-	use_module(File1,[node/3,edge/3]),
-	use_module(File2,[nd/3,arc/3]),
-	node(N,_,G),
-
-	mhpQuery(N,F,MHPList),
-	drawGraph(Os,G,N,MHPList),
+	consult(F),	
+	consult(ExtendedGFile),	
+	consult('src/autogen/graph.pl'),	
+	
+	graphs(Gs),	
+	forall(member(G,Gs),(drawGraph(Os,G),nl(Os))),
 	nl(Os),
 	write(Os,'}'),
-	
 	abolish(node/3),
-	abolish(nd/3),
+	abolish(nd/3),	
 	abolish(edge/3),
 	abolish(arc/3),
-	close(Os),
-
-	atom_concats(['dot -Tpdf outputs/mhp_',FNameWithoutExt,'.dot',' -o outputs/mhp_',FNameWithoutExt,'.pdf'],Command1),
-	atom_concats(['xdg-open outputs/mhp_',FNameWithoutExt,'.pdf'],Command2),
-        shell(Command1,_S1),
-	shell(Command2,_S2),!.
-
-
-
-
-drawMarkedCHTGraph(N):-
-	use_module(src/autogen/cht),
-	mhpDir(MhpDir),
-	atom_concat(MhpDir,'test/outputs/',Temp1),	
-    	atom_concat(Temp1,'chtGraph',Temp2),
-	atom_concat(Temp2,'.dot',File),
-	open(File,write,Os),
-	write(Os,'digraph G {'),
-	node(N,_,G),
-	chtQuery(N,CHTList),
-	drawCHTGraph(Os,G,N,CHTList),
-	nl(Os),
-	write(Os,'}'),
-	close(Os).
-
-  
-drawGraph(Os,G,N,MHP):-
-    drawNodes(Os,G,N,MHP),
-    findall((P,Q),edge(P,Q,G),L),	
-    drawMarkedMHPGraphDetails(L,Os).    
-
-
-drawCHTGraph(Os,G,N,CHT):-
-    drawCHTNodes(Os,G,N,CHT),
-    findall((P,Q),edge(P,Q,G),L),	
-    drawMarkedMHPGraphDetails(L,Os).    
-
+	abolish(origin/2),	
+	abolish(graphs/1),
+	abolish(eventMap/2),
+	abolish(graphInfo/2),	
+	abolish(graphLoc/2),		
+	close(Os).	
 
 
 drawGraph(Os,G):-
-    findall((P,Q),edge(P,Q,G),L),
-    graphInfo(G,GName),
-    atom_concat('gr_',GInfo,GName),	
-    atom_concats(['subgraph cluster_',GInfo,'{'],SubGraph),	
-    nl(Os),	
-    write(Os, SubGraph),nl(Os),	
-    drawGraphDetails(L,Os),
-    atom_concats(['label="',GInfo,'";'],Label),
-    nl(Os),	
-    write(Os,Label),nl(Os), write(Os,'}'),nl(Os).	
-    
-printTree([],_,_Os,_G).
-printTree([P|Ps],Pro,Os,G):-
-    findall(A,edge(P,A,G),L),
-    printTreeOutput(P,L,Os),
-    filterNodes(L,[P|Pro],Ls,ProUpdate),  
-    union(Ps,Ls,PL),                        %union
-    printTree(PL,ProUpdate,Os,G).
+	graphInfo(G,GName),
+	origin(G,[G]),!,	
+	findall((P,Q),edge(P,Q,G),L),
+	atom_concat('gr_',GInfo,GName),	
+	atom_concats(['subgraph cluster_',GInfo,'{'],SubGraph),	
+	nl(Os),	
+	write(Os, SubGraph),nl(Os),	
+	drawGraphDetails(L,Os),
+	atom_concats(['label="',GInfo,'";'],Label),
+	nl(Os),	
+	write(Os,Label),nl(Os), write(Os,'}'),nl(Os).	
+
+drawGraph(Os,G):-
+	graphInfo(G,_GName),
+	graphLoc(G,GLoc),
+	origin(G,IdList),!,	
+	findall((P,Q),edge(P,Q,G),Edges),
+	
+	abolish(node/3),	
+	
+	findall((Id,E),(member(Id,IdList),graphLoc(Id,Loc),use_module(Loc,[node/3]),relevant_edges(Edges,Id,E),	abolish(node/3)),EdgeParts),
+	use_module(GLoc,[node/3]),
+	findall(E,member((_,E),EdgeParts),Elist),
+	flatten(Elist,AllEparts),
+	subtract(Edges,AllEparts,Rests),
+	union(EdgeParts,[(0,Rests)],EdgePartition),
+	forall(member((Id,E),EdgePartition),drawEachGraphSeg(Os,Id,E)).
+
+drawEachGraphSeg(Os,0,E):-
+	drawGraphDetails(E,Os),!.	
+
+drawEachGraphSeg(Os,G,E):-
+	graphInfo(G,GName),
+	atom_concat('gr_',GInfo,GName),	
+	atom_concats(['subgraph cluster_',GInfo,'{'],SubGraph),	
+	nl(Os),	
+	write(Os, SubGraph),nl(Os),	
+	drawGraphDetails(E,Os),
+	atom_concats(['label="',GInfo,'";'],Label),
+	nl(Os),	
+	write(Os,Label),nl(Os), write(Os,'}'),nl(Os).	
+
+
+relevant_edges(Edges,Id,E):-
+	findall((P,Q),(member((P,Q),Edges),node(P,_T,Id),node(Q,_,Id)),E).
+
+
+%% drawMarkedMHPGraph(N,F):-
+%% 	getTextualFileName(F,FNameWithoutExt),	
+%% 	mhpDir(MhpDir),
+%% 	atom_concats([MhpDir,'outputs/mhp_',FNameWithoutExt,'.dot'],File),
+%% 	open(File,write,Os),
+%% 	write(Os,'digraph G {'),	
+
+%% 	mhpDir(MhpDir),
+%% 	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
+%% 	atom_concats([MhpDir,'src/autogen/graphExtended_',FNameWithoutExt,'.pl'],File2),	
+%% 	exists_file(File1),!,
+%% 	use_module(File1,[node/3,edge/3]),
+%% 	use_module(File2,[nd/3,arc/3]),
+%% 	node(N,_,G),
+
+%% 	mhpQuery(N,F,MHPList),
+%% 	drawGraph(Os,G,N,MHPList),
+%% 	nl(Os),
+%% 	write(Os,'}'),
+	
+%% 	abolish(node/3),
+%% 	abolish(nd/3),
+%% 	abolish(edge/3),
+%% 	abolish(arc/3),
+%% 	close(Os),
+
+%% 	atom_concats(['dot -Tpdf outputs/mhp_',FNameWithoutExt,'.dot',' -o outputs/mhp_',FNameWithoutExt,'.pdf'],Command1),
+%% 	atom_concats(['xdg-open outputs/mhp_',FNameWithoutExt,'.pdf'],Command2),
+%%         shell(Command1,_S1),
+%% 	shell(Command2,_S2),!.
+
+
+
+%% drawMarkedCHTGraph(N):-
+%% 	use_module(src/autogen/cht),
+%% 	mhpDir(MhpDir),
+%% 	atom_concat(MhpDir,'test/outputs/',Temp1),	
+%%     	atom_concat(Temp1,'chtGraph',Temp2),
+%% 	atom_concat(Temp2,'.dot',File),
+%% 	open(File,write,Os),
+%% 	write(Os,'digraph G {'),
+%% 	node(N,_,G),
+%% 	chtQuery(N,CHTList),
+%% 	drawCHTGraph(Os,G,N,CHTList),
+%% 	nl(Os),
+%% 	write(Os,'}'),
+%% 	close(Os).
+
+  
+%% drawGraph(Os,G,N,MHP):-
+%%     drawNodes(Os,G,N,MHP),
+%%     findall((P,Q),edge(P,Q,G),L),	
+%%     drawMarkedMHPGraphDetails(L,Os).    
+
+
+%% drawCHTGraph(Os,G,N,CHT):-
+%%     drawCHTNodes(Os,G,N,CHT),
+%%     findall((P,Q),edge(P,Q,G),L),	
+%%     drawMarkedMHPGraphDetails(L,Os).    
+
+
+   
+%% printTree([],_,_Os,_G).
+%% printTree([P|Ps],Pro,Os,G):-
+%%     findall(A,edge(P,A,G),L),
+%%     printTreeOutput(P,L,Os),
+%%     filterNodes(L,[P|Pro],Ls,ProUpdate),  
+%%     union(Ps,Ls,PL),                        %union
+%%     printTree(PL,ProUpdate,Os,G).
 
 
 filterNodes(L,Pro,Ls,ProUpdate):-
@@ -216,119 +215,127 @@ filterNodes(L,Pro,Ls,ProUpdate):-
     union(Pro,Lp,ProUpdate).      %union
 
 
-drawNodes(Os,G,N,MHP):-
-	findall(Node,(node(Node,_,G)),Nodes),
-	findall(Nd,nd(Nd,_,G),Nds),
-	subtract(Nodes,Nds,ActiveNodes),
-	forall((member(P,ActiveNodes)),(
-	%nl(Os),    
-	(
-	    (node(P,class:barrier,_))->
-		(
-		    write(Os,P),
-		    write(Os,'[shape=rectangle,style=filled,color=green];'),
-		    nl(Os)    
-		);true
-	),
+%% drawNodes(Os,G,N,MHP):-
+%% 	findall(Node,(node(Node,_,G)),Nodes),
+%% 	findall(Nd,nd(Nd,_,G),Nds),
+%% 	subtract(Nodes,Nds,ActiveNodes),
+%% 	forall((member(P,ActiveNodes)),(
+%% 	%nl(Os),    
+%% 	(
+%% 	    (node(P,class:barrier,_))->
+%% 		(
+%% 		    write(Os,P),
+%% 		    write(Os,'[shape=rectangle,style=filled,color=green];'),
+%% 		    nl(Os)    
+%% 		);true
+%% 	),
 
-       (
-	   (node(P,class:join,_);node(P,class:multijoin,_))->
-	       (
-		   write(Os,P),
-		   write(Os,'[shape=rectangle,style=filled,color=gray];'),
-		   nl(Os)    
-	       );true
-        ),
-	(
-	    node(P,class:decision,_)->
-	    (
-		write(Os,P),
-		write(Os,'[shape=diamond];'),
-		nl(Os)    
-	    );true
-        ),
-	(
-	    member(P,MHP)->
-	    (write(Os,P),
-	    write(Os,'[style=filled,color=blue];'),
-	    nl(Os)
-	);true
-    ),
+%%        (
+%% 	   (node(P,class:join,_);node(P,class:multijoin,_))->
+%% 	       (
+%% 		   write(Os,P),
+%% 		   write(Os,'[shape=rectangle,style=filled,color=gray];'),
+%% 		   nl(Os)    
+%% 	       );true
+%%         ),
+%% 	(
+%% 	    node(P,class:decision,_)->
+%% 	    (
+%% 		write(Os,P),
+%% 		write(Os,'[shape=diamond];'),
+%% 		nl(Os)    
+%% 	    );true
+%%         ),
+%% 	(
+%% 	    member(P,MHP)->
+%% 	    (write(Os,P),
+%% 	    write(Os,'[style=filled,color=blue];'),
+%% 	    nl(Os)
+%% 	);true
+%%     ),
 
-	(
-	    (P=N)->
-		(write(Os,P),
-		write(Os,'[style=filled,color=royalblue,fontcolor=red];'),
-		nl(Os)
-	    );true
-    )
-	)).
-
-
-
-drawCHTNodes(Os,G,N,CHT):-
-	findall(Node,(node(Node,_,G)),Nodes),
-	findall(Nd,nd(Nd,_,G),Nds),
-	subtract(Nodes,Nds,ActiveNodes),
-	forall((member(P,ActiveNodes)),(
-	%nl(Os),    
-	(
-	    (node(P,class:barrier,_))->
-		(
-		    write(Os,P),
-		    write(Os,'[shape=rectangle,style=filled,color=green];'),
-		    nl(Os)    
-		);true
-	),
-
-       (
-	   (node(P,class:join,_);node(P,class:multijoin,_))->
-	       (
-		   write(Os,P),
-		   write(Os,'[shape=rectangle,style=filled,color=gray];'),
-		   nl(Os)    
-	       );true
-        ),
-	(
-	    node(P,class:decision,_)->
-	    (
-		write(Os,P),
-		write(Os,'[shape=diamond];'),
-		nl(Os)    
-	    );true
-        ),
-	(
-	    member(P,CHT)->
-	    (   
-		write(Os,P),
-	    write(Os,'[style=filled,color=red];'),
-	    nl(Os)
-	);true
-    ),
-
-	(
-	    (P=N)->
-		(write(Os,P),
-		write(Os,'[style=filled,color=royalblue,fontcolor=red];'),
-		nl(Os)
-	    );true
-    )
-	)).
+%% 	(
+%% 	    (P=N)->
+%% 		(write(Os,P),
+%% 		write(Os,'[style=filled,color=royalblue,fontcolor=red];'),
+%% 		nl(Os)
+%% 	    );true
+%%     )
+%% 	)).
 
 
 
-drawMarkedMHPGraphDetails([],_Os).
-drawMarkedMHPGraphDetails([(P,Q)|Rs],Os):-
-    \+ arc(P,Q,_),!,		
-    write(Os,P),
-    write(Os,' -> '),
-    write(Os,Q),
-    write(Os,';'),
-    nl(Os),	
-    drawMarkedMHPGraphDetails(Rs,Os).
+%% drawCHTNodes(Os,G,N,CHT):-
+%% 	findall(Node,(node(Node,_,G)),Nodes),
+%% 	findall(Nd,nd(Nd,_,G),Nds),
+%% 	subtract(Nodes,Nds,ActiveNodes),
+%% 	forall((member(P,ActiveNodes)),(
+%% 	%nl(Os),    
+%% 	(
+%% 	    (node(P,class:barrier,_))->
+%% 		(
+%% 		    write(Os,P),
+%% 		    write(Os,'[shape=rectangle,style=filled,color=green];'),
+%% 		    nl(Os)    
+%% 		);true
+%% 	),
 
-drawMarkedMHPGraphDetails([(_P,_Q)|Rs],Os):-
-	drawMarkedMHPGraphDetails(Rs,Os).
+%%        (
+%% 	   (node(P,class:join,_);node(P,class:multijoin,_))->
+%% 	       (
+%% 		   write(Os,P),
+%% 		   write(Os,'[shape=rectangle,style=filled,color=gray];'),
+%% 		   nl(Os)    
+%% 	       );true
+%%         ),
+%% 	(
+%% 	    node(P,class:decision,_)->
+%% 	    (
+%% 		write(Os,P),
+%% 		write(Os,'[shape=diamond];'),
+%% 		nl(Os)    
+%% 	    );true
+%%         ),
+%% 	(
+%% 	    member(P,CHT)->
+%% 	    (   
+%% 		write(Os,P),
+%% 	    write(Os,'[style=filled,color=red];'),
+%% 	    nl(Os)
+%% 	);true
+%%     ),
+
+%% 	(
+%% 	    (P=N)->
+%% 		(write(Os,P),
+%% 		write(Os,'[style=filled,color=royalblue,fontcolor=red];'),
+%% 		nl(Os)
+%% 	    );true
+%%     )
+%% 	)).
+
+
+
+%% drawMarkedMHPGraphDetails([],_Os).
+%% drawMarkedMHPGraphDetails([(P,Q)|Rs],Os):-
+%%     \+ arc(P,Q,_),!,		
+%%     write(Os,P),
+%%     write(Os,' -> '),
+%%     write(Os,Q),
+%%     write(Os,';'),
+%%     nl(Os),	
+%%     drawMarkedMHPGraphDetails(Rs,Os).
+
+%% drawMarkedMHPGraphDetails([(_P,_Q)|Rs],Os):-
+%% 	drawMarkedMHPGraphDetails(Rs,Os).
+
+
+markRelevantNodes(Os,P):-
+	marking(N,MHP),!,
+	(member(P,MHP)->(write(Os,P), write(Os,'[style=filled,color=blue];'),nl(Os));true),
+	((P=N)->(write(Os,P),write(Os,'[style=filled,color=royalblue,fontcolor=red];'),nl(Os));true).
+
+markRelevantNodes(_Os,_P).
 
 drawGraphDetails([],_Os).
 drawGraphDetails([(P,Q)|Rs],Os):-
@@ -364,6 +371,7 @@ drawGraphDetails([(P,Q)|Rs],Os):-
 
     ),
 
+    markRelevantNodes(Os,P),	
     (
 	\+ edge(_,P,_)->
 	(
@@ -383,14 +391,14 @@ drawGraphDetails([(P,Q)|Rs],Os):-
 drawGraphDetails([(_P,_Q)|Rs],Os):-
 	drawGraphDetails(Rs,Os).
     
-printTreeOutput(_P,[],_Os).
-printTreeOutput(P,[C|Cs],Os):-
-    nl(Os),
-    write(Os,P),
-    write(Os,' -> '),
-    write(Os,C),
-    write(Os,';'),
-    printTreeOutput(P,Cs,Os).
+%% printTreeOutput(_P,[],_Os).
+%% printTreeOutput(P,[C|Cs],Os):-
+%%     nl(Os),
+%%     write(Os,P),
+%%     write(Os,' -> '),
+%%     write(Os,C),
+%%     write(Os,';'),
+%%     printTreeOutput(P,Cs,Os).
 
 cond_include_nodes(P,Q):-
 	debug_mode(false),
@@ -410,7 +418,7 @@ mhpQuery(Task,F):-
 	subtract(MHPList,[dummyTask],MHP),
 	length(MHP,L),
 	% print result
-	write('The following taska are running in parallel with '),write(Task),write(':'),nl,nl,
+	write('The following tasks are running in parallel with '),write(Task),write(':'),nl,nl,
 	forall(member(M,MHP),(write(M), nl)),nl,
         write('Total number of tasks running in parallel with '), write(Task),write(': '),write(L),nl,
 	abolish(mhp/2).
@@ -425,8 +433,6 @@ mhpQuery(Task,F,MHP):-
 	findall(Q,((mhp(Task,Q);mhp(Q,Task))),MHPList),
 	subtract(MHPList,[dummyTask],MHP),
 	abolish(mhp/2).
-
-
 
 mhpQuery(F):-
 	getTextualFileName(F,FNameWithoutExt),	
@@ -454,7 +460,30 @@ mhpQuery(F):-
 	write("Total no of tasks: "),write(L1),nl,nl.
 
 
+chtQuery(Task,F):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/cht_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	use_module(File1,[cht_lessthan/2]),
+	findall(Q,(cht_lessthan(Q,Task)),CHT0),
+	subtract(CHT0,[dummyTask],CHT),
+	abolish(cht/2),
+	length(CHT,L),
+	% print result
+	write('The following tasks have finished running before '),write(Task),write(':'),nl,nl,
+	forall(member(M,CHT),(write(M), nl)),nl,
+        write('Total number of tasks finished running before '), write(Task),write(': '),write(L),nl.
 
+chtQuery(Task,F,CHT):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/cht_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!,
+	use_module(File1,[cht_lessthan/2]),
+	findall(Q,(cht_lessthan(Q,Task)),CHT0),
+	subtract(CHT0,[dummyTask],CHT),
+	abolish(cht/2).
 
 
 
@@ -467,11 +496,7 @@ remove_duplicates([(P,Q)|Mhp],Acc,Res):-
 remove_duplicates([_|Mhp],Acc,Res):-
 	remove_duplicates(Mhp,Acc,Res).
 	
-
-chtQuery(Task,CHT):-
-	findall(Q,(cht_lessthan(Q,Task)),CHT).
-
-        
+     
 save_mhpQuery(Task,Os):-
 	findall(Q,(mhp(Task,Q);mhp(Q,Task)),MHPList),
 	subtract(MHPList,[dummyTask],MHP),
@@ -531,3 +556,38 @@ compareStatistics(F1,F2):-
 	use_module(FM2),
 	findall((N,TDiff1,TDiff2),(F1:mhpOf(N,TL),F2:mhpOf_latest(N,TL1),compareTaskList(TL,TL1,TDiff1,TDiff2)),TDiffList),
 	saveRegression(TDiffList).
+
+
+
+% +F is the ID of the graph exists in src/autogen/graph.pl' File  
+find_graph_in_prolog_format(F,File1):-
+	number(F),!,
+	use_module('src/autogen/graph.pl',[graphLoc/2]),
+	graphLoc(F,File1),
+	abolish(graphLoc/2).
+
+% +F is the name of the graph like F='/path-to-dive-file' if something.dive is parsed successfully   
+find_graph_in_prolog_format(F,File1):-
+	getTextualFileName(F,FNameWithoutExt),	
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/graph_',FNameWithoutExt,'.pl'],File1),	
+	exists_file(File1),!.
+
+% +F is the absolute graph filename in prolog format 
+find_graph_in_prolog_format(F,F):-
+	exists_file(F),
+	getFileExtension(F,Ext),	
+	member(Ext,['.pl']),!.
+
+% +F is the name of the graph like F='something' if something.dive is parsed successfully   
+find_graph_in_prolog_format(F,File1):-
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/graph_',F,'.pl'],File1),	
+	exists_file(File1),!.
+
+% +F is the name of the graph like F='graph_graphName.pl' that exists in src/autogen directory  
+find_graph_in_prolog_format(F,File1):-
+	mhpDir(MhpDir),
+	atom_concats([MhpDir,'src/autogen/',F],File1),	
+	exists_file(File1),!.
+

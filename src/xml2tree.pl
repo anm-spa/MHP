@@ -23,10 +23,12 @@ parse_activity_graph(XMLs):-
 	(exists_file(GraphInfo) ->(use_module(GraphInfo),open(GraphInfo,append,GrInfoStream));
 	    (
 		open(GraphInfo,write,GrInfoStream),
-		write(GrInfoStream,':-module(graph,[graphInfo/2,graphLoc/2]).'),
+		write(GrInfoStream,':-module(graph,[graphInfo/2,graphLoc/2,origin/2]).'),
 		nl(GrInfoStream),
 		write(GrInfoStream,':- discontiguous graphInfo/2.'), nl(GrInfoStream),	 	
 		write(GrInfoStream,':- discontiguous graphLoc/2.'),
+		nl(GrInfoStream),
+		write(GrInfoStream,':- discontiguous origin/2.'),
 		nl(GrInfoStream)
 	    )
         ),
@@ -188,7 +190,9 @@ find_or_createGraphInfo(Name,Os,Id):-
 	max_list(IDList,Max),
 	Id is Max+1,
 	atom_concats(['graphInfo(',Id,',',Name,').'],GInfo),
-	write(Os,GInfo),nl(Os).
+	write(Os,GInfo),nl(Os),
+	atom_concats(['origin(',Id,',[',Id,']).'],OriginInfo),
+	write(Os,OriginInfo),nl(Os).
 
 
 % visitGraph(+XMLGraph,+FileDesc1,+FileDesc2,+FileDesc3)

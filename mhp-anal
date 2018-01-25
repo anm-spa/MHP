@@ -36,7 +36,7 @@ while getopts ":p:D:g:djem" opt
 		  TIMEDIFF=`echo "$ENDTIME-$STARTTIME" | bc | awk -F"." '{print $1"."substr($2,1,3)}'`
 		  time
 		  echo "Analysis time is: $TIMEDIFF"
-		 swipl --quiet -s 'src/tools.pl' -t "drawGraphFromFile('${i}')"
+		 swipl --quiet -s 'src/tools.pl' -t "draw_action_graph('${i}')"
 	     done
 	     #swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
              ;;
