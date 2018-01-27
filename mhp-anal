@@ -38,7 +38,7 @@ while getopts ":p:D:g:djem" opt
 		  echo "Analysis time is: $TIMEDIFF"
 		 swipl --quiet -s 'src/tools.pl' -t "draw_action_graph('${i}')"
 	     done
-	     #swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
+	     swipl --quiet -s 'src/buildRacerScript.pl' -t "build_all_task_spec" --   
              ;;
 	D ) actionGraph="$(iterate_over_cl)"
             ;;    

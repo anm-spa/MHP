@@ -1,11 +1,26 @@
-:- module(buildRacerScript,[build_script/0,build_compile_commands/0,file_contains_func/2,build_all_task_spec/0,build_all_events/0,getEventMap/0,map_events_to_tasks/0]).
+:- module(buildRacerScript,[build_compile_commands/0,file_contains_func/2,build_all_task_spec/0,build_all_events/0,getEventMap/0,map_events_to_tasks/0,build_race_checker_script/0]).
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(config/config).
-%:- use_module(autogen/taskSpec).
-%:- use_module(autogen/mhp).
 :- use_module(compile_options).
 :- use_module(src/helper).
+
+
+build_race_checker_script:-
+	 mhpDir(MhpDir),
+	 atom_concat(MhpDir,'bin',Bin),
+	 check_or_create_dir(Bin),
+	 atom_concat(Bin,'/check_race',RaceChecker),	
+	 open(RaceChecker,write,OS),
+	 write(OS,'#!/bin/sh'),
+	 nl(OS),nl(OS),
+	 findall((P,Q),mhp(P,Q),MhpList),
+	 llvm_bin(LLVM),
+	 write_test_command(MhpList,LLVM,OS,1),
+	 atom_concat('chmod +x ',RaceChecker,Command),
+	 shell(Command).
+     
+
 
 
 % It creates a task info containing the source files of each tasks 
@@ -176,7 +191,7 @@ map_events_to_tasks:-
 	findall(G,graphLoc(_,G),GList),
 	list_to_set(GList,Gset),
 
-	getGraphInfoForEachTask(Gset,TaskSet,[],TG,TNG),
+	getGraphInfoForEachTask(Gset,TaskSet,[],TG,_TNG),
 
 	
 	forall(member((T,E),EventTasksFound),(
@@ -347,7 +362,7 @@ check_exists([M|Ms],L,[M|Rs]):-
 
 group_tasks([],[],R,R).
 group_tasks([D|Ds],[(D,SList)|DT],Acc,Rs):-
-	findall(T,((path(T,D),taskspec(T,F,_),atom_concat(D,_,F));(func(T,P,_),path(P,D),taskspec(T,F,_),atom_concat(D,_,F))),TList),
+	findall(T,(taskspec(T,F,_),atom_concat(D,_,F)),TList),
 	list_to_set(TList,SList),
 	append(Acc,SList,Accp),
 	group_tasks(Ds,DT,Accp,Rs).
@@ -409,21 +424,6 @@ write_commands(Fs,D,Comm,[TFile|Ts]):-
 	(Ts\= [] -> (write(Fs,','),nl(Fs));true),
 	write_commands(Fs,D,Comm,Ts).
 
-
-build_script:-
-	 mhpDir(MhpDir),
-	 atom_concat(MhpDir,'bbTest',Mhp),
-	 check_or_create_dir(Mhp),
-	 atom_concat(MhpDir,'bbTest/checkRace',RaceChecker),	
-	 open(RaceChecker,write,OS),
-	 write(OS,'#!/bin/sh'),
-	 nl(OS),nl(OS),
-	 findall((P,Q),mhp(P,Q),MhpList),
-	 llvm_bin(LLVM),
-	 write_test_command(MhpList,LLVM,OS,1),
-	 atom_concat('chmod +x ',RaceChecker,Command),
-	 shell(Command).
-     
 
 write_test_command([],_LLVM,_OS,_).
 write_test_command([(P,Q)|Ms],LLVM,OS,N):-

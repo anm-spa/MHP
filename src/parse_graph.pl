@@ -1,4 +1,4 @@
-:- module(xml2tree,[parse_activity_graph/1,debug_parse_activity_graph/1]).
+:- module(parse_graph,[parse_activity_graph/1,debug_parse_activity_graph/1]).
 :- use_module(library(sgml)).
 :- use_module(config/config).
 :- use_module(helper).
