@@ -26,16 +26,16 @@ configure_mhp_tool(BB,LLVM,DMode):-
 	nl(OS),
 
 	%debug mode
-	write(OS,'debug_mode('),
-	write(OS,DMode),
-	write(OS,').'),
-	nl(OS),
+	%write(OS,'debug_mode('),
+	%write(OS,DMode),
+	%write(OS,').'),
+	%nl(OS),
 
 	%force_analysis
-	write(OS,'force_analysis('),
-	write(OS,false),
-	write(OS,').'),
-	nl(OS),
+	%write(OS,'force_analysis('),
+	%write(OS,false),
+	%write(OS,').'),
+	%nl(OS),
 	
 	%LLVM Binary Dir where the racer tool resides
 	write(OS,'llvm_bin('),
@@ -72,16 +72,16 @@ configure_mhp_tool_test_mode(BB,LLVM,DMode):-
 	nl(OS),
 
 	%debug mode
-	write(OS,'debug_mode('),
-	write(OS,DMode),
-	write(OS,').'),
-	nl(OS),
+	%write(OS,'debug_mode('),
+	%write(OS,DMode),
+	%write(OS,').'),
+	%nl(OS),
 
 	%force_analysis
-	write(OS,'force_analysis('),
-	write(OS,false),
-	write(OS,').'),
-	nl(OS),
+	%write(OS,'force_analysis('),
+	%write(OS,false),
+	%write(OS,').'),
+	%nl(OS),
 	
 	%LLVM Binary Dir where the racer tool resides
 	write(OS,'llvm_bin(\''),

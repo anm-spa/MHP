@@ -44,7 +44,8 @@ build_all_task_spec:-
 
 write_task_spec(OS):-
 	findall((Node,Func,Path),(func(Node,PNode,Func),path(PNode,Path)),TaskInfo),
-      	build_task_info_and_write(OS,TaskInfo).
+	list_to_set(TaskInfo,TaskInfo1),
+      	build_task_info_and_write(OS,TaskInfo1).
 
 build_task_info_and_write(_OS,[]).
 
@@ -77,18 +78,21 @@ file_contains_func(File, Func) :-
    read_each_line(Func,L),!, close(input).
 
 file_contains_func(_File, _Func) :-close(input),fail.
-
+ 	
 
 read_each_line(Func,L):-
     read_line_to_string(input, String), 
-    String \= end_of_file,
+    string_contains_func(String,Func,L).	
+
+
+string_contains_func(String,Func,L):-
     atom_string(Line,String),
-    sub_atom(Line,_B,L,_X,Func),!.	
+    sub_atom(Line,_B,L,_X,Func),!.
 
-read_each_line(Func,L):-
-    read_line_to_string(input, String), 
-    String \= end_of_file,
-    !,read_each_line(Func,L).
+string_contains_func(end_of_file,_Func,_L):-!,fail.
+
+string_contains_func(_String,Func,L):-	
+	read_each_line(Func,L).
 
 
 

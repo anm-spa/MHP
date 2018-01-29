@@ -191,7 +191,7 @@ collect_all_mhp_list_aux([G|Gs],Acc,MHP):-
 	atom_concats([MhpDir,'src/autogen/mhp_',GF,'.pl'],MHPGraphName),
 	exists_file(MHPGraphName),
 	consult(MHPGraphName),
-	findall((P,Q),(mhp(P,Q),(\+ P=dummyTask;\+ Q=dummyTask)),MHPList),
+	findall((P,Q),(mhp(P,Q)),MHPList),
 	abolish(mhp/2),
 	remove_duplicates(MHPList,[],MHP_noDuplicate),
 	union(Acc,MHP_noDuplicate,Accp),
@@ -200,6 +200,11 @@ collect_all_mhp_list_aux([G|Gs],Acc,MHP):-
 	
 
 remove_duplicates([],Res,Res).
+
+remove_duplicates([(P,Q)|Mhp],Acc,Res):-
+	(P=dummyTask; Q=dummyTask),!,
+	remove_duplicates(Mhp,Acc,Res).
+
 remove_duplicates([(P,Q)|Mhp],Acc,Res):-
 	(\+ member((P,Q),Acc); \+ member((Q,P),Acc)),
 	union(Acc,[(P,Q)],Accp),!,
