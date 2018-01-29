@@ -55,6 +55,12 @@ parse_activity_graph(XMLs):-
 	parse_activity_graph_aux(XMLs,AutoGen,PathStream,Tr1,GrInfoStream),
 	retractall(nodepath(_N,_P)),	
 
+	abolish(path/2),
+	abolish(func/2),
+
+	abolish(origin/2),
+	abolish(graphInfo/2),
+	abolish(graphLoc/2),
 	close(GrInfoStream),
 	close(PathStream),!.
 
@@ -559,12 +565,12 @@ get_nextunused_graphId(0):-
 % Case 2: graph.pl file exists, but no graphLoc/2 predicate exists
 get_nextunused_graphId(0):-
 	use_module('src/autogen/graph.pl',[graphLoc/2]),
-	\+ current_predicate(graphLoc/2),!.
+	\+ current_predicate(graphLoc/2),!,abolish(graphLoc/2).
 
 % Case 3: graph.pl file exists, graphLoc/2 predicate describes some graphs
 get_nextunused_graphId(N):-
 	use_module('src/autogen/graph.pl',[graphLoc/2]),
-	findall(Id,graphLoc(Id,_),IList),
+	findall(Id,graphLoc(Id,_),IList),abolish(graphLoc/2),
 	(IList=[] -> N=0; max_list(IList,N)).
 
 

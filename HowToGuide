@@ -1,13 +1,40 @@
-This tool analyzes the high-level design of a parallel application in which parallelism is expressed using task graphs. It generates the may-happen-in-parallel facts of tasks by applying dataflow analysis.
+This tool discovers parallelism in the high-level design of a parallel application. It generates the may-happen-in-parallel (MHP) facts of tasks invoked by the parallel application. 
 
-Requirements
-------------
 
-You need to have the SWI prolog (http://www.swi-prolog.org/) installed and available in your shell command.  Specific command at environment X (anonymous):
+How to get this tool
+--------------------
+
+Get the tool from the github repository: https://github.com/anm-spa/MHP.git
+
+
+Installation Requirements
+-------------------------
+
+You shall need the following tools and environment:
+
+1) python (checked with the python version 2.7.9)
+
+2)
+
+You need to have the SWI prolog (http://www.swi-prolog.org/) installed and available in your shell command.  At ericsson environment (in one of the teamserver) you may check availability by the following command:
 
       Command: module avail swipl 
 
-You may have either swipl/7.2.3(default) or swipl/7.3.11). Either of the version works fine.
+You may have either swipl/7.2.3(default) or swipl/7.3.11). Either of the version works fine, Command: module add swipl
+
+Outside Ericsson environment, you may need to install it by yourself. Instruction is available at http://www.swi-prolog.org/build/unix.html for for Linux. Simple command sequences to install swipl are the following:
+
+	git clone https://github.com/SWI-Prolog/swipl-devel.git
+	cd swipl-devel
+	./prepare
+	cp -p build.templ build
+	./build
+
+Note that swipl should support sgml library to parse xml. 
+
+3) You need to have the racer tool developed under the clang/llvm environment 
+
+
 
 You will also  need to install llvm/clang if you want to check data race. Please note that installing llvm requires quite some time, and you may need to increase your swap space. You also need to include the Racer tool (available at https://github.com/anm-spa/Racer) in the clang framework.
 

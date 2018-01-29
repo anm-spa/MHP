@@ -180,8 +180,8 @@ build_all_events_Bak:-
 map_events_to_tasks:-
 	use_module('src/autogen/eventMap',[triggerEvent/2]),
 	use_module('src/autogen/buildpath',[func/3]),
-	findall((T,E),(triggerEvent(TFunc,E),func(T,_,TFunc)),EventTasksFound),
-	findall((TFunc,E),(triggerEvent(TFunc,E),\+ func(_T,_,TFunc)),EventTaskNotFound),
+	catch(findall((T,E),(triggerEvent(TFunc,E),func(T,_,TFunc)),EventTasksFound),_,EventTasksFound=[]),
+	catch(findall((TFunc,E),(triggerEvent(TFunc,E),\+ func(_T,_,TFunc)),EventTaskNotFound),_,EventTaskNotFound=[]),
 	
 	absolute_file_name('src/autogen/events.pl',EventFname),
 	open(EventFname,write,EventFdesc),

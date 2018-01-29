@@ -16,8 +16,8 @@ main(GList,Force,Race,PTask,ETask,DebugMode,ShowGraph):-
 	(\+ GListMod =[] -> (
 	    collect_all_mhp_list(PTask,GListMod,MHP),
 	    show_mhp_graph(PTask,GListMod),
-	    show_cht_graph(ETask,GListMod)
-	   % perform_essential_analysis(MHP,Race)
+	    show_cht_graph(ETask,GListMod),
+	    perform_essential_analysis(MHP,Race)
 	    );
 	    (write("***Info: Use -f to force essential analysis which may take some time"),nl)
 	),
