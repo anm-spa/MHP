@@ -87,7 +87,7 @@ configure_mhp_tool_test_mode(BB,LLVM,DMode):-
 	%LLVM Binary Dir where the racer tool resides
 	write(OS,'llvm_bin('),
 	term_to_atom(LLVM,LLVMBina),
-	atom_concat(W,LLVMBina,LLVMBin)
+	atom_concat(W,LLVMBina,LLVMBin),
 	write(OS,LLVMBin),
 	write(OS,').'),
 	nl(OS),
