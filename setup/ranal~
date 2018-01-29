@@ -1,0 +1,53 @@
+#!/usr/bin/python
+
+import subprocess
+import argparse
+
+parser = argparse.ArgumentParser(description='Detecting parallelism and data race')
+#group = parser.add_mutually_exclusive_group()
+parser.add_argument('graphs', metavar='Graphs', type=str, nargs='+',  
+                    help='list of action graphs')
+
+parser.add_argument('-l',"--list_graph", action="store_true",  
+                    help='list of action graphs')
+
+parser.add_argument('-f', "--force_analysis", action="store_true", 
+                    help='force analysis even if there exists previous analysis')
+
+parser.add_argument('-d', "--debug_mode", action="store_true", 
+                    help='perform analysis on debug mode to see more results')
+
+parser.add_argument('-s', "--show_graph", action="store_true", 
+                    help='show input graphs')
+
+parser.add_argument('-r', "--call_racer", action="store_true", #dest='accumulate', action='store_const', const=sum, default=max,
+                    help='call racer tool to check data race')
+
+parser.add_argument('-ptask', "--show_parallel_tasks", #dest='accumulate', action='store_const', const=sum, default=max,
+                    help='show all tasks that will run in parallel with this task')
+
+parser.add_argument('-etask', "--show_end_tasks", #dest='accumulate', action='store_const', const=sum, default=max,
+                    help='show all tasks that have finished running with this task')
+
+
+args = parser.parse_args()
+
+force="yes" if args.force_analysis else "no"
+debug="yes" if args.debug_mode else "no"
+show_graph="yes" if args.show_graph else "no"
+race="yes" if args.call_racer else "no"
+ptasks="none" if args.show_parallel_tasks is None else str(args.show_parallel_tasks)
+etasks="none" if args.show_end_tasks is None else str(args.show_end_tasks)
+
+print("show all tasks that will run with {}".format(args.show_parallel_tasks))
+print("show all tasks that have finished running with {}".format(args.show_end_tasks))
+
+cmd = ["swipl --quiet -s ../src/main.pl -t \"main(['"+ "','".join(args.graphs) + "']," + force +','+ race+ ','+ptasks+','+etasks+','+debug+','+show_graph+")\" --"]
+print("Executing Command: " +', '.join(cmd))
+result = subprocess.call(cmd, shell=True)
+
+cmd1 = ["swipl --quiet -s ../src/main.pl -t \"list_graph\" --"]
+
+if args.list_graph:
+    result = subprocess.call(cmd1, shell=True)
+
