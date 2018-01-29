@@ -60,7 +60,7 @@ configure_mhp_tool_test_mode(BB,LLVM,DMode):-
 	% BB Dir
 	write(OS,'bbDir('),
 	term_to_atom(BB,BAtom),
-	atom_concat(W,BAtom,BBp)
+	atom_concat(W,BAtom,BBp),
 	write(OS,BBp),
 	write(OS,').'),
 	nl(OS),
