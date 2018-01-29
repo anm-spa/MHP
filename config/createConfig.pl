@@ -2,8 +2,13 @@
 
 configure_mhp_tool(BB,LLVM,DMode):-
 	open('config/config.pl',write,OS),
-        write(OS,':-module(config,[bbDir/1,mhpDir/1,llvm_bin/1,debug_mode/1]).'),	
+        write(OS,':-module(config,[bbDir/1,mhpDir/1,llvm_bin/1,debug_mode/1,force_analysis/1]).'),	
         nl(OS),nl(OS),
+
+	write(OS,':-dynamic debug_mode/1.'),
+	nl(OS),
+	write(OS,':-dynamic force_analysis/1.'),
+	nl(OS),
 	
 	% BB Dir
 	write(OS,'bbDir('),
@@ -23,6 +28,12 @@ configure_mhp_tool(BB,LLVM,DMode):-
 	%debug mode
 	write(OS,'debug_mode('),
 	write(OS,DMode),
+	write(OS,').'),
+	nl(OS),
+
+	%force_analysis
+	write(OS,'force_analysis('),
+	write(OS,false),
 	write(OS,').'),
 	nl(OS),
 	

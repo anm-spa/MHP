@@ -10,8 +10,17 @@
 % output: generates activity graph in prolog format named graph_GraphName.pl in the src/autogen directory where GraphName is extracted from the XML file name
 % Auxiliary Outputs: 
 
+parse_activity_graph(InputXML):-
+	mhpDir(MhpDir),
+	atom_concat(MhpDir,'src/autogen',AutoGen),
+	getTextualFileName(InputXML,FileName),
+	atom_concats([AutoGen,'/graph_',FileName,'.pl'],GraphName),
+	exists_file(GraphName),
+	force_analysis(false),!,
+	write(InputXML), write(': Already Parsed (use -f if you want to analyze again).'),nl.
    
 parse_activity_graph(XMLs):-
+	write('Parsing Graph File: '),write(XMLs), nl,
 	mhpDir(MhpDir),
 	atom_concat(MhpDir,'src/autogen',AutoGen),
 	check_or_create_dir(AutoGen),
@@ -47,7 +56,10 @@ parse_activity_graph(XMLs):-
 	retractall(nodepath(_N,_P)),	
 
 	close(GrInfoStream),
-	close(PathStream).
+	close(PathStream),!.
+
+parse_activity_graph(InputXML):-
+	write(InputXML), write(' is not a valid activity graph (***ignoring it***).'),nl.
 
 parse_activity_graph_aux(InputXML,AutoGen,PathStream,Tr1,GrInfoStream):-
 	load_xml(InputXML,XML,[dialect(xml)]),
@@ -96,10 +108,12 @@ parse_activity_graph_aux(InputXML,AutoGen,PathStream,Tr1,GrInfoStream):-
 
 	use_module(TreeInfo,[info/2]),
 	findall((Task,Event),(info('class:map',L),member(toLabel=EN,L),atom_concat('r',EN,Task),downcase_atom(EN,Event)),AllEvents),
-	forall(member((Task,Event),AllEvents), (
-	write(Tr,'eventMap('),
-	write(Tr,Task),write(Tr,', '),write(Tr,Event),write(Tr,').'),nl(Tr)
-	)),
+	(AllEvents = [] -> (write(Tr,"eventMap('no_task','no_event')."),nl(Tr));
+            forall(member((Task,Event),AllEvents), (
+	         write(Tr,'eventMap('),
+		 write(Tr,Task),write(Tr,', '),write(Tr,Event),write(Tr,').'),nl(Tr)
+	     ))
+	 ),
 	abolish(info/2),
 
 	close(Tr),		

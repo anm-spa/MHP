@@ -7,7 +7,7 @@
 :- dynamic joinArity/2.
 :- dynamic barriers/2.
 
-:- use_module(config/config).
+%:- use_module(config/config).
 :- use_module(library(lists)).
 
 :- style_check(-singleton).
@@ -42,12 +42,13 @@ mainDefault:-
 
 main(F):-
 	absolute_file_name(F,Graph),
-	use_module(Graph),
+	consult(Graph),
+	consult('config/config.pl'),
 	getTextualFileName(F,GFile),
 	atom_concat('graph_',GF,GFile),
 	file_directory_name(Graph,D),
 	atom_concats([D,'/','graphExtended_',GF,'.pl'],ExtGraph),
-	use_module(ExtGraph),
+	consult(ExtGraph),
 
 	graphs(GidList),
 	mhpDir(MhpDir),
@@ -68,6 +69,12 @@ main(F):-
 	nb_setval(taskcounter,1),
 	nb_setval(barriercounter,1),
 	main_aux(GidList,Os,ChtHandler,0,_PairNo),
+	abolish(nd/3),
+	abolish(arc/3),
+	abolish(node/3),
+	abolish(edge/3),
+	abolish(graphs/1),
+	abolish(eventMap/2),
 	close(Os),
 	close(ChtHandler).
 	%delete_import_module(dataflowAnalysis,Graph),
@@ -819,7 +826,7 @@ debugWriteInfoParBranch(_Successors, _ParResSet).
 
 debugWriteInfo(P,Q,R,QEntry,QExit):-
 	debug_mode(true),
-	(R=rULMACCE_SELFO_start;R=rULMACCE_SELFO_cleanup),
+	%(R=rULMACCE_SELFO_start;R=rULMACCE_SELFO_cleanup),
 	nl,write('...........................'),nl,
 	write(P), write('->'), write(Q),
 	write(' | Node: '),write(R),

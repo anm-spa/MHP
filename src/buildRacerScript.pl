@@ -1,4 +1,4 @@
-:- module(buildRacerScript,[build_compile_commands/0,file_contains_func/2,build_all_task_spec/0,build_all_events/0,getEventMap/0,map_events_to_tasks/0,build_race_checker_script/0]).
+:- module(buildRacerScript,[build_compile_commands/0,file_contains_func/2,build_all_task_spec/0,build_all_events/0,getEventMap/0,map_events_to_tasks/0,build_race_checker_script/1]).
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(config/config).
@@ -6,7 +6,7 @@
 :- use_module(src/helper).
 
 
-build_race_checker_script:-
+build_race_checker_script(MhpList):-
 	 mhpDir(MhpDir),
 	 atom_concat(MhpDir,'bin',Bin),
 	 check_or_create_dir(Bin),
@@ -14,9 +14,13 @@ build_race_checker_script:-
 	 open(RaceChecker,write,OS),
 	 write(OS,'#!/bin/sh'),
 	 nl(OS),nl(OS),
-	 findall((P,Q),mhp(P,Q),MhpList),
+	 
+	 use_module('src/autogen/taskSpec.pl',[taskspec/3]),
 	 llvm_bin(LLVM),
+	 
 	 write_test_command(MhpList,LLVM,OS,1),
+	 abolish(taskspec/3),
+	 close(OS),
 	 atom_concat('chmod +x ',RaceChecker,Command),
 	 shell(Command).
      
@@ -95,7 +99,8 @@ build_all_events:-
 	absolute_file_name('src/autogen/eventMap.pl',EventFile),
 	open(EventFile,write,EventHandler),
 
-	write(EventHandler,":-module(eventMap,[triggerEvent/2,joinConfigEvent/2,activatorEvent/2,threadEvent/2])."),
+	%write(EventHandler,":-module(eventMap,[triggerEvent/2,joinConfigEvent/2,activatorEvent/2,threadEvent/2])."),
+	write(EventHandler,":-module(eventMap,[triggerEvent/2])."),
 	nl(EventHandler),
 	close(EventHandler),
 	atom_concats([LLVM,'/racer -e ',EventFile,' '],Comm),
@@ -122,9 +127,9 @@ run_event_command(Comm,[(D,Flist)|DFList]):-
 
 	   findall(F,(member(X,AllCFiles),atom_concat(X,' ',F)),Files),
 	   foldl(atom_concat,Files,' ',SourceFiles),
-	   atom_concats([Comm,Comm1,SourceFiles,' 2>>errorlog 1>>outlog'],Command),
+	   atom_concats([Comm,Comm1,SourceFiles,' 2>>outputs/errorlog 1>>outputs/outlog'],Command),
 	   
-	   atom_concats(['echo ',Command,' 1>>outlog'],Command1),
+	   atom_concats(['echo ',Command,' 1>>outputs/outlog'],Command1),
 	   shell(Command1,_S1),
 	   shell(Command,_S),
 	   run_event_command(Comm,DFList).
@@ -193,21 +198,24 @@ map_events_to_tasks:-
 
 	getGraphInfoForEachTask(Gset,TaskSet,[],TG,_TNG),
 
+	(EventTasksFound = []-> (write(EventFdesc,"events('no_graph',0,'no_task','no_event')."),nl(EventFdesc));
+	    forall(member((T,E),EventTasksFound),(
+	        convertAppropriateCase(E,Ep),
+		member((T,G,Id),TG),
+		term_to_atom(G,Ga),
+		atom_concats(['events(',Ga,',',Id,',',T,',',Ep,').'],Ev),
+		write(EventFdesc,Ev),
+		nl(EventFdesc)
+	        ))
+        ), 
 	
-	forall(member((T,E),EventTasksFound),(
-	  convertAppropriateCase(E,Ep),
-	  member((T,G,Id),TG),
-	  term_to_atom(G,Ga),
-	  atom_concats(['events(',Ga,',',Id,',',T,',',Ep,').'],Ev),
-	  write(EventFdesc,Ev),
-	  nl(EventFdesc)
-	)),
-	close(EventFdesc),
 
-	forall(member((F,E),EventTaskNotFound),
-	(
-	    write('Events not found: '),write(E), write(' Func: '),write(F),nl
-	)),
+	close(EventFdesc),
+        (debug_mode(true)->
+	                 forall(member((F,E),EventTaskNotFound),
+			 (   
+			     write('Events not found: '),write(E), write(' Func: '),write(F),nl
+			 ));true),
 	abolish(graphLoc/2),
 	abolish(func/3),
 	abolish(triggerEvent/2).
@@ -305,7 +313,9 @@ findrelevantThreadOrActivatorEvent([(F,E,G1)|Rs],[(F,E,G1,'not_found')|EventMap]
 
 build_compile_commands:-
 	use_module(src/autogen/buildpath,[path/2,func/3]),
+	consult('src/autogen/taskSpec.pl'),
 	groupPaths,
+	abolish(taskspec/3),
 	abolish(path/2),
 	abolish(func/3).
 

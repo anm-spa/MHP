@@ -3,6 +3,7 @@
 	draw_cht_graph/2,
 	mhpQuery/2,
 	mhpQuery/1,
+	find_graph_in_prolog_format/2,
 	showStatistics/0,
 	saveStatistics/1]).
 
@@ -372,6 +373,7 @@ drawGraphDetails([(P,Q)|Rs],Os):-
     ),
 
     markRelevantNodes(Os,P),	
+    markRelevantNodes(Os,Q),		
     (
 	\+ edge(_,P,_)->
 	(

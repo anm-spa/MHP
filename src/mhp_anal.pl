@@ -1,17 +1,17 @@
-:- module(mhp_anal,[mhpOfGraphs/2,mhpOfFiles/2]).
+:- module(mhp_anal,[mhpOfGraphs/3,mhpOfFiles/2]).
 :- use_module(src/helper).
 
 
 
 % It creates a new graph and then perform dataflow analysis to generate mhp pair.
 
-mhpOfGraphs(G1,G2):-
+mhpOfGraphs(G1,G2,GFile):-
 	valid_graph(G1,Gid1),
 	valid_graph(G2,Gid),
 	(Gid=Gid1->replicateGraph(Gid,Gid2);Gid2=Gid),
 	mhpOfGraphsAux(Gid1,Gid2,GFile),
 	use_module('src/tools.pl',[draw_action_graph/1]),
-	draw_action_graph(GFile),
+	%draw_action_graph(GFile),
 	abolish(draw_action_graph/1),
 	%Perform dataflow analysis
 	use_module('src/dataflowAnalysis.pl',[main/1]),
@@ -33,7 +33,7 @@ mhpOfGraphs(G1,G2):-
 %% 	abolish(graphInfo/2),
 %% 	abolish(graphLoc/2).
 
-mhpOfGraphs(_G1,_G2):-
+mhpOfGraphs(_G1,_G2,_):-
 	write("Graph not found").
 
 
@@ -204,7 +204,7 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	write(GFileStream,"%Unique start node connecting the two graph"),
 	nl(GFileStream),
 	
-	atom_concats(['node(',AName1,'_',AName2,'_start_',Gid,',class:label,',Gid,').'],StartNodeText),
+	atom_concats(['node(start_',AName1,'_',AName2,'_',Gid,',class:label,',Gid,').'],StartNodeText),
 	write(GFileStream,StartNodeText),
 	nl(GFileStream),
 
@@ -213,7 +213,7 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	write(GFileStream,NodeText),
 	nl(GFileStream),
 
-	atom_concats([AName1,'_',AName2,'_start_',Gid],StartNode),
+	atom_concats(['start_',AName1,'_',AName2,'_',Gid],StartNode),
 	atom_concats(['edge(',StartNode,',',Barrier,',',Gid,').'],SArc),
 	write(GFileStream,SArc),
 	nl(GFileStream),
@@ -234,7 +234,7 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	%% findall(T2,member((_Ts1,_Evs,T2),Events2),G2Events),
 	%% union(G1Events,G2Events,GEvents),
 	%% union(GEvents,[Start1,Start2],AllGEvents),
-	union(E1Nodes,E2Nodes,ENodes),
+	union(E1Nodes,E2Nodes,_ENodes),
 	%% subtract(ENodes,AllGEvents,RemEventNodes),
 	
 	abolish(node/3),
