@@ -1,4 +1,4 @@
-:- module(createConfig,[configure_mhp_tool/3]).
+:- module(createConfig,[configure_mhp_tool/3,configure_mhp_tool_test_mode/3]).
 
 configure_mhp_tool(BB,LLVM,DMode):-
 	open('config/config.pl',write,OS),
