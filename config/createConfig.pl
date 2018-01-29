@@ -59,11 +59,10 @@ configure_mhp_tool_test_mode(BB,LLVM,DMode):-
 	nl(OS),
 	
 	% BB Dir
-	write(OS,'bbDir('),
-	term_to_atom(BB,BAtom),
-	atom_concat(WAtom,BAtom,BBp),
+	write(OS,'bbDir(\''),
+	atom_concat(W,BB,BBp),
 	write(OS,BBp),
-	write(OS,').'),
+	write(OS,'\').'),
 	nl(OS),
 	
 	%MHP Tool Dir
@@ -85,10 +84,9 @@ configure_mhp_tool_test_mode(BB,LLVM,DMode):-
 	nl(OS),
 	
 	%LLVM Binary Dir where the racer tool resides
-	write(OS,'llvm_bin('),
-	term_to_atom(LLVM,LLVMBina),
-	atom_concat(WAtom,LLVMBina,LLVMBin),
+	write(OS,'llvm_bin(\''),
+	atom_concat(W,LLVM,LLVMBin),
 	write(OS,LLVMBin),
-	write(OS,').'),
+	write(OS,'\').'),
 	nl(OS),
 	close(OS).
