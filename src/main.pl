@@ -56,11 +56,11 @@ run_parser(GList,ShowGraph,GListChecked):-
 
 
 % check if GMList contains everything
-run_parser(GList,ShowGraph,ResultFile):-
+run_parser(GList,ShowGraph,ResultFileList):-
 	graphs_in_prolog_format(GList,GMList),	
 	use_module('src/mhp_anal.pl',[mhpOfGraphs/3]),
-	analyze_graph_file(GMList,ResultFile),!,
-	show_all_graphs([ResultFile],ShowGraph),
+	analyze_graph_file(GMList,ResultFileList),!,
+	show_all_graphs(ResultFileList,ShowGraph),
 	abolish(mhpOfGraphs/3).
 
 run_parser(_,_ShowGraph,_G):-
@@ -132,7 +132,7 @@ graphs_in_prolog_format_aux([G|Gs],Rs):-
 	graphs_in_prolog_format_aux(Gs,Rs).
 
 
-analyze_graph_file([G],G).
+analyze_graph_file([G],[G]).
 analyze_graph_file([G1,G2|Gs],R):-
 	mhpOfGraphs(G1,G2,GFile),
 	analyze_graph_file([GFile|Gs],R).
@@ -188,7 +188,8 @@ collect_all_mhp_list_aux([G|Gs],Acc,MHP):-
 	absolute_file_name(G,AbsG),
 	getTextualFileName(AbsG,GF),
 	mhpDir(MhpDir),
-	atom_concats([MhpDir,'src/autogen/mhp_',GF,'.pl'],MHPGraphName),
+	(atom_concat('graph_',GFCore,GF)->true;GFCore=GF),
+	atom_concats([MhpDir,'src/autogen/mhp_',GFCore,'.pl'],MHPGraphName),
 	exists_file(MHPGraphName),
 	consult(MHPGraphName),
 	findall((P,Q),(mhp(P,Q)),MHPList),
