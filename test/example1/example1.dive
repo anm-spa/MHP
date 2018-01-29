@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dive:dive xmlns:class="fabricated" xmlns:dive="testdive" generatedby="Abu Naser Masud">
+  <class:class mapToScriptName="exampleGraphScripts" name="exampleGraph" stereotype="someActivity">
+    <class:interface>
+      <class:map name="start" stereotype="operation" toScript="exampleGraph"/>
+    </class:interface>
+    <class:script beginAtLabel="startActivity" name="exampleGraph">
+      <class:label name="startActivity">
+        <class:fork actionPackageFile="/example1/src_dev/not_important.xml" actionPackageName="not_important" branchLabel="execute_TYPE_DEV_DEVSETUP_start_7" priority="TYPE_DEVDEVSETUPSTARTFO_PRIO" threadId="TYPE_DEV_DEVSETUP"/>
+      </class:label>
+      <class:label name="execute_TYPE_DEV_DEVSETUP_start_7">
+        <class:exec contextClass="void" func="main" relativeIndirect="nothing"/>
+        <class:fork actionPackageFile="/example1/src_dev/anyfile.xml" actionPackageName="TYPE_SIGNALH_DEVSETUP/some_action_package" branchLabel="execute_TYPE_SIGNALH_CONF_start_5" priority="TYPE_SIGNALHDEVSETUPSTARTFO_PRIO" threadId="TYPE_SIGNALH_DEVSETUP"/>
+        <class:fork actionPackageFile="/example1/src_dev/some_file.xml" actionPackageName="TYPE_SIGNAL_LOW_DEVSETUP/tcbb_action_package" branchLabel="execute_TYPE_SIGNAL_LOW_DEVSETUP_start_4" priority="TYPE_SIGNAL_LOWDEVSETUPSTARTFO_PRIO" threadId="TYPE_SIGNAL_LOW_DEVSETUP"/>
+  </class:label>
+      <class:label name="execute_TYPE_SIGNALH_CONF_start_5">
+        <class:exec contextClass="void" func="task_run" relativeIndirect="not_important"/>
+        <class:join branchLabel="Join_ccords_setupDone_9" instance="ccords_setupDone" keyPattern="0x8" resetState="0xf"/>
+      </class:label>
+      <class:label name="Join_ccords_setupDone_9">
+        <class:fork actionPackageFile="/example1/src_dev/somepackage.xml" actionPackageName="TYPE_DEV_DEVSETUPDONE/tcbb_action_package" branchLabel="execute_TYPE_DEV_DEVSETUPDONE_start_11" priority="TYPE_DEVDEVSETUPDONESTARTFO_PRIO" threadId="TYPE_DEV_DEVSETUPDONE"/>
+      </class:label>
+      <class:label name="execute_TYPE_DEV_DEVSETUPDONE_start_11">
+        <class:exec contextClass="void" func="FFT" relativeIndirect="not_important"/>
+        <class:return/>
+      </class:label>
+      <class:label name="execute_TYPE_SIGNAL_LOW_DEVSETUP_start_4">
+        <class:exec contextClass="void" func="task2_run" relativeIndirect="not_important"/>
+        <class:fork actionPackageFile="/example1/src_dev/somepackages.xml" actionPackageName="TYPE_SIGNAL_LOW_CONF/tcbb_action_package" branchLabel="execute_TYPE_SIGNAL_LOW_CONF_start_6" priority="TYPE_SIGNAL_LOWCONFSTARTFO_PRIO" threadId="TYPE_SIGNAL_LOW_CONF"/>
+      </class:label>
+      <class:label name="execute_TYPE_SIGNAL_LOW_CONF_start_6">
+        <class:exec contextClass="void" func="task_run" relativeIndirect="not_important"/>
+        <class:join branchLabel="Join_ccords_setupDone_9" instance="ccords_setupDone" keyPattern="0x1" resetState="0xf"/>
+      </class:label>
+
+    </class:script>
+  </class:class>
+</dive:dive>

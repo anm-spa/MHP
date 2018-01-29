@@ -16,8 +16,8 @@ main(GList,Force,Race,PTask,ETask,DebugMode,ShowGraph):-
 	(\+ GListMod =[] -> (
 	    collect_all_mhp_list(PTask,GListMod,MHP),
 	    show_mhp_graph(PTask,GListMod),
-	    show_cht_graph(ETask,GListMod),
-	    perform_essential_analysis(MHP,Race)
+	    show_cht_graph(ETask,GListMod)
+	   % perform_essential_analysis(MHP,Race)
 	    );
 	    (write("***Info: Use -f to force essential analysis which may take some time"),nl)
 	),
@@ -33,7 +33,7 @@ list_graph:-
 	(\+ GList = [] -> (write("*****************List of all graphs parsed before***************"),nl,
 	                   write("----------------------------------------------------------------"),nl);true),
 	forall(member((Id, Name,Loc),GList),(
-	atom_concats(['Graph: ',Name,' (Id: ',Id,'InternalRep: ',Loc,')'],ToWrite),
+	atom_concats(['Graph: ',Name,' (Id: ',Id,' InternalRep: ',Loc,')'],ToWrite),
 	write(ToWrite),nl
 	)),
 	abolish(graphInfo/2),

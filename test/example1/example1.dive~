@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dive:dive xmlns:class="http://www.ericsson.com/dura/bbi/class" xmlns:dive="http://www.ericsson.com/dura/bbi/dive" generatedby="com.ericsson.dura.bbi.transform.vhivet.internal=1.3.2.qualifier+cbbT=1.17.34">
+  <class:class mapToScriptName="ULMACCE_msg3ReactorScripts" name="ULMACCE_msg3Reactor" stereotype="reactor">
+    <class:include>bbiSignals.sig</class:include>
+    <class:include>ulmacce_initmsg3_pi_sigdefs.sig</class:include>
+    <class:include>ULMACCE_msg3Reactor.h</class:include>
+    <class:headerInclude inAcpFile="true" inEspFile="true" inHeaderFile="true" inImplementationFile="false" name="elibBbBaseCommonUlmaFoPriosUpc.h"/>
+    <class:interface>
+      <class:port conjugate="false" multiplicity="1" name="dlMacCeRaFiPort" protocol="dlMacCeRaFi"/>
+      <class:port conjugate="false" multiplicity="1" name="ulCellCeRaEiPort" protocol="leUpcUlCellCeEi"/>
+      <class:port conjugate="false" multiplicity="1" name="upcDraNbCeRaFiPort" protocol="UpcDraNbCeRaFi"/>
+      <class:map name="LPP_UPC_ULCELLCE_EI_SCHEDULE_RA_MSG3_IND" stereotype="signal" toScript="UpcUlCellCeEiScheduleRaMsg3Ind_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg3Ind"/>
+      <class:map name="UPC_DLMACCE_FI_SCHEDULE_RA_MSG2_CFM" stereotype="signal" toScript="UpcDlMacCeFiScheduleRaMsg2Cfm_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Cfm"/>
+      <class:map name="UPC_DLMACCE_FI_SCHEDULE_RA_MSG2_REJ" stereotype="signal" toScript="UpcDlMacCeFiScheduleRaMsg2Rej_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Rej"/>
+      <class:map name="UPC_DRANBCE_FI_SCHEDULE_RA_RSP" stereotype="signal" toScript="UpcDraNbCeFiScheduleRaRsp_to_ULMACCE_MSG3REACTOR_handleNbScheduleRaRsp"/>
+    </class:interface>
+    <class:script beginAtLabel="startActivity" name="UpcUlCellCeEiScheduleRaMsg3Ind_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg3Ind">
+      <class:label name="startActivity">
+        <class:fork actionPackageFile="/upc/ulMacCeBl/initMsg3SwU/src/ulmacce_initmsg3_actionpackages.xml" actionPackageName="_action_package_handleScheduleRaMsg3Ind" branchLabel="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg3Ind" priority="ULMACCE_MSG3REACTOR_HANDLESCHEDULERAMSG3IND_PRIO" threadId="ULMACCE_MSG3REACTOR_handleScheduleRaMsg3indThreadId"/>
+      </class:label>
+      <class:label name="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg3Ind">
+        <class:exec func="ULMACCE_MSG3REACTOR_handleScheduleRaMsg3Ind"/>
+        <class:return/>
+      </class:label>
+    </class:script>
+    <class:script beginAtLabel="startActivity" name="UpcDlMacCeFiScheduleRaMsg2Cfm_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Cfm">
+      <class:label name="startActivity">
+        <class:fork actionPackageFile="/upc/ulMacCeBl/initMsg3SwU/src/ulmacce_initmsg3_actionpackages.xml" actionPackageName="_action_package_handleScheduleRaMsg2Cfm" branchLabel="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Cfm" priority="ULMACCE_MSG3REACTOR_HANDLESCHEDULERAMSG2CFM_PRIO" threadId="ULMACCE_MSG3REACTOR_handleScheduleRaMsg2CfmThreadId"/>
+      </class:label>
+      <class:label name="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Cfm">
+        <class:exec func="ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Cfm"/>
+        <class:return/>
+      </class:label>
+    </class:script>
+    <class:script beginAtLabel="startActivity" name="UpcDlMacCeFiScheduleRaMsg2Rej_to_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Rej">
+      <class:label name="startActivity">
+        <class:fork actionPackageFile="/upc/ulMacCeBl/initMsg3SwU/src/ulmacce_initmsg3_actionpackages.xml" actionPackageName="_action_package_handleScheduleRaMsg2Rej" branchLabel="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Rej" priority="ULMACCE_MSG3REACTOR_HANDLESCHEDULERAMSG2REJ_PRIO" threadId="ULMACCE_MSG3REACTOR_handleScheduleRaMsg2RejThreadId"/>
+      </class:label>
+      <class:label name="execute_ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Rej">
+        <class:exec func="ULMACCE_MSG3REACTOR_handleScheduleRaMsg2Rej"/>
+        <class:return/>
+      </class:label>
+    </class:script>
+    <class:script beginAtLabel="startActivity" name="UpcDraNbCeFiScheduleRaRsp_to_ULMACCE_MSG3REACTOR_handleNbScheduleRaRsp">
+      <class:label name="startActivity">
+        <class:fork actionPackageFile="/upc/ulMacCeBl/initMsg3SwU/src/ulmacce_initmsg3_actionpackages.xml" actionPackageName="_action_package_handleNbScheduleRaRsp" branchLabel="execute_ULMACCE_MSG3REACTOR_handleNbScheduleRaRsp" priority="ULMACCE_MSG3REACTOR_HANDLENBSCHEDULERARSP_PRIO" threadId="ULMACCE_MSG3REACTOR_handleScheduleRaRspthreadId"/>
+      </class:label>
+      <class:label name="execute_ULMACCE_MSG3REACTOR_handleNbScheduleRaRsp">
+        <class:exec func="ULMACCE_MSG3REACTOR_handleNbScheduleRaRsp"/>
+        <class:return/>
+      </class:label>
+    </class:script>
+  </class:class>
+</dive:dive>
