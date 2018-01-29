@@ -4,7 +4,7 @@ This tool discovers parallelism in the high-level design of a parallel applicati
 How to get this tool
 --------------------
 
-Get the tool from the github repository: https://github.com/anm-spa/MHP.git
+Get the tool from the github repository: https://github.com/anm-spa/MHP
 
 
 Installation Requirements
@@ -32,42 +32,64 @@ Outside Ericsson environment, you may need to install it by yourself. Instructio
 
 Note that swipl should support sgml library to parse xml. 
 
-3) You need to have the racer tool developed under the clang/llvm environment 
+3) You need to have the racer tool available which is developed under the clang/llvm environment. First, you may need to install llvm/clang which will take some time.
+   
+   #Installing llvm at the ericsson environment:
+        git clone --recursive ssh://gerritmirror.rnd.ki.sw.ericsson.se:29418/flextools/llvm.git
+	cd llvm
+	tmp/build-test -l 4     
+   
+  #Installing llvm/clang outside ericsson environment
+     Just follow the instruction at https://llvm.org/docs/GettingStarted.html 
+  
+  Once you have llvm and clang, now do the following to setup racer.
+
+    cd (your llvm directory)/tools/clang/tools 
+    git clone https://github.com/anm-spa/Racer.git
+    
+  open the CMakeLists.txt and add the following line in the file
+     add_clang_subdirectory(Racer)
+   
+  now build llvm again which will install racer in the llvm binary directory
+
+  Known BUG while building Racer
+  ------------------------------
+
+  CMake Error at tools/clang/tools/Racer/CMakeLists.txt:43 (target_link_libraries):
+    The keyword signature for target_link_libraries has already been used with
+    the target "racer".  All uses of target_link_libraries with a target must
+    be either all-keyword or all-plain.
+
+    The uses of the keyword signature are here:
+
+     * cmake/modules/LLVM-Config.cmake:105 (target_link_libraries)
+     * cmake/modules/AddLLVM.cmake:771 (target_link_libraries)
 
 
+   ********If you get this bug or similar, you can try to get rid of it by just removing the keyword LINK_PRIVATE from the Racer/CMakeLists.txt file**** 
 
-You will also  need to install llvm/clang if you want to check data race. Please note that installing llvm requires quite some time, and you may need to increase your swap space. You also need to include the Racer tool (available at https://github.com/anm-spa/Racer) in the clang framework.
 
-This tool is tested in Ubuntu and Red-Hat Linux
-
-How to get MHP tool
+Install the MHP tool
 --------------------
 
-Git Command: git clone https://github.com/anm-spa/MHP.git
-
-Github Link: https://github.com/anm-spa/MHP
-
-
-
-Installing LLVM and Racer Tool
-------------------------------
-
-You need to clone the github repository (git clone https://github.com/anm-spa/Racer.git) and follow the HowToGuide included in the Racer.
-
-
-How to Use
-----------
-
-It is pretty simple to use this tool. You need to do the following:
+	git clone https://github.com/anm-spa/MHP.git mhp
+	cd mhp
 	
-	1. Download the repo by using the following shell comand: git clone https://github.com/anm-spa/MHP.git
-	2. Change the working directory to MHP: cd MHP
-	3. You need to set two variables: BBDIR (your application directory), and LLVMBIN (llvm binary directory). You can directly edit them in the Makefile or give values as parameters to make
-	4. Run the following command: make DIVE=DiveFileToAnalyze build [BBDIR=YourBBDirectory] [LLVMBIN=YourLLVMBinaryDirectory]
+    Now, you can do test-install by running the command: make test-install, or make install    	
+    
+    If you do test-install, it will be able to test the examples provided in the mhp/test/ directory
+    If you do general install, you should edit the Makefile in the mhp directory. Set BBDIR to the base directory of your application to be tested, and LLVMBIN directory to the directory of your LLVM binary directory in which the racer tool is available.
 
-It will generate (among many other things) the following two files:
 
-1. src/autogen/mhp.pl : it is a prolog file containing the MHP facts such as "mhp(T1,T2)" saying that task T1 and T2 are running in parallel. You can inspect this file if you want. 
-2. bbTest/checkrace: it is a scripting file that can directly be executed if you have the racer tool available. You can directly modify the script. Initially all available commands are commented. You need to manually uncomment the command before execution.
+How to Use the Tool
+-------------------
+
+Please check the HowToUse document coming with this tool
+
+
+Contact
+-------
+
+For any further information, please contact at email: masud.abunaser@mdh.se
 
 
