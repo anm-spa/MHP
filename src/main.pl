@@ -29,7 +29,8 @@ list_graph:-
 	atom_concat(TDir,'bin/',W),
 	chdir(TDir),
 	consult('src/autogen/graph.pl'),
-	findall((Id, Name,Loc),(graphInfo(Id,Name),graphLoc(Id,Loc)),GList),
+	findall((Id, Name,Loc),(graphInfo(Id,Name),graphLoc(Id,Loc)),GL),
+	list_to_set(GL,GList),
 	(\+ GList = [] -> (write("*****************List of all graphs parsed before***************"),nl,
 	                   write("----------------------------------------------------------------"),nl);true),
 	forall(member((Id, Name,Loc),GList),(
