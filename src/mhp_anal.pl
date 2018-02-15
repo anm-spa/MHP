@@ -5,11 +5,11 @@
 
 % It creates a new graph and then perform dataflow analysis to generate mhp pair.
 
-mhpOfGraphs(G1,G2,GFile):-
+mhpOfGraphs(G1,G2,GName):-
 	valid_graph(G1,Gid1),
 	valid_graph(G2,Gid),
 	(Gid=Gid1->replicateGraph(Gid,Gid2);Gid2=Gid),
-	mhpOfGraphsAux(Gid1,Gid2,GFile),
+	mhpOfGraphsAux(Gid1,Gid2,GFile,GName),
 	use_module('src/tools.pl',[draw_action_graph/1]),
 	%draw_action_graph(GFile),
 	abolish(draw_action_graph/1),
@@ -37,7 +37,7 @@ mhpOfGraphs(_G1,_G2,_):-
 	write("Graph not found").
 
 
-mhpOfGraphsAux(Gid1,Gid2,GFile):-
+mhpOfGraphsAux(Gid1,Gid2,GFile,GName):-
 	%collectEvents(Gid1,Gid2,Events1,Events2),
 	collectEvents(Gid1,Gid2,Events_0,RemEventNodes),
 
@@ -71,7 +71,7 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	%create a new graph
 	atom_concats(['src/autogen/graph_',AName1,'_',AName2,'.pl'],GFile),
 	open(GFile,write,GFileStream),
-	atom_concats([':- module(graph_',AName1,'_',AName2,',[node/3,edge/3,graphs/1]',').'],GModule),
+	atom_concats([':- module(graph_',AName1,'_',AName2,',[node/3,edge/3,graphs/1,eventMap/2]',').'],GModule),
 	write(GFileStream,GModule),
 	nl(GFileStream),
 
@@ -86,7 +86,7 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	nl(GFileStream),
 
 	% write all nodes and edges of the two previous graph into the new graph
-	use_module(Loc1,[node/3,edge/3]),
+	use_module(Loc1,[node/3,edge/3,eventMap/2]),
 	getTextualFileName(Loc1,F1),
 	atom_concat('graph_',AbsF,F1),
 	atom_concats(['src/autogen/graphExtended_',AbsF],ExtLoc1),
@@ -100,8 +100,9 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	union(Edges0_0,Edges0_1,Edges),
 	
 
+	findall((T,E),eventMap(T,E),EMap1),
 
-	(\+ Loc1=Loc2 -> (abolish(node/3),abolish(edge/3),abolish(nd/3),abolish(arc/3),use_module(Loc2,[node/3,edge/3]),
+	(\+ Loc1=Loc2 -> (abolish(node/3),abolish(edge/3),abolish(nd/3),abolish(arc/3),abolish(eventMap/2),use_module(Loc2,[node/3,edge/3,eventMap/2]),
 	                  getTextualFileName(Loc2,F2),
 			  atom_concat('graph_',AbsF2,F2),
 			  atom_concats(['src/autogen/graphExtended_',AbsF2],ExtLoc2),
@@ -115,7 +116,9 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	findall((Start2,NE),(edge(Start2,NE,Gid2)),Edges1_2),
 	union(Edges1_1,Edges1_2,Edges2),
 	
-	
+	findall((T,E),eventMap(T,E),EMap2),
+	union(EMap1,EMap2,EMap1_2),
+	list_to_set(EMap1_2,EMap),
 	%findall(N,(node(N,_,Gid2),\+ edge(_Nd,N,Gid2)),E2Nodes),
 
 	forall(member((N,Type),Nodes),(
@@ -229,6 +232,14 @@ mhpOfGraphsAux(Gid1,Gid2,GFile):-
 	atom_concats(['graphs([',Gid,']).'],GIdInfo),
 	write(GFileStream,GIdInfo),
 	nl(GFileStream),
+
+
+	forall(member((T,E),EMap),(
+	  atom_concats(['eventMap(',T,',',E,').'],EventInfo),
+	  write(GFileStream,EventInfo),
+	  nl(GFileStream)
+	)),
+
 	
 	%% findall(T2,member((_T1,_Ev,T2),Events1),G1Events),
 	%% findall(T2,member((_Ts1,_Evs,T2),Events2),G2Events),
